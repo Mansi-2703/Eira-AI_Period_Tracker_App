@@ -1,0 +1,194 @@
+import 'dart:convert';
+import 'package:http/http.dart' as http;
+import 'package:flutter_secure_storage/flutter_secure_storage.dart';
+
+class ApiService {
+  static const String baseUrl = "http://10.0.2.2:8000/api";
+  static const FlutterSecureStorage storage = FlutterSecureStorage();
+  static const String _registrationKey = "has_registered";
+  static const String _usernameKey = "cached_username";
+  static const String _emailKey = "cached_email";
+
+  // 🔐 LOGIN
+  static Future<bool> login(String username, String password) async {
+    final response = await http.post(
+      Uri.parse("$baseUrl/users/login/"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "username": username,
+        "password": password,
+      }),
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      await storage.write(key: "access", value: data["access"]);
+      return true;
+    }
+    return false;
+  }
+
+  // 🌸 REGISTER
+  static Future<bool> register(String username, String email, String password) async {
+    final response = await http.post(
+      Uri.parse("$baseUrl/users/register/"),
+      headers: {"Content-Type": "application/json"},
+      body: jsonEncode({
+        "username": username,
+        "email": email,
+        "password": password,
+      }),
+    );
+
+    if (response.statusCode == 201) {
+      await storage.write(key: _registrationKey, value: 'true');
+      return true;
+    }
+    return false;
+  }
+
+  // ✅ STATE
+  static Future<bool> hasRegistered() async {
+    final value = await storage.read(key: _registrationKey);
+    return value == 'true';
+  }
+
+  static Future<Map<String, dynamic>?> fetchQuizProfile() async {
+    final token = await storage.read(key: "access");
+    final response = await http.get(
+      Uri.parse("$baseUrl/quiz/profile/"),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+    }
+    return null;
+  }
+
+  static Future<List<dynamic>> fetchCycles() async {
+    final token = await storage.read(key: "access");
+    final response = await http.get(
+      Uri.parse("$baseUrl/cycles/create/"),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is List) {
+        return decoded;
+      }
+    }
+    return [];
+  }
+
+  static Future<bool> updateCycle({
+    required int id,
+    required String startDate,
+    required int cycleLength,
+    required int periodLength,
+  }) async {
+    final token = await storage.read(key: "access");
+    final response = await http.put(
+      Uri.parse("$baseUrl/cycles/log/$id/"),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode({
+        "start_date": startDate,
+        "cycle_length": cycleLength,
+        "period_length": periodLength,
+      }),
+    );
+
+    return response.statusCode == 200;
+  }
+
+  // 🌸 SAVE CYCLE
+  static Future<bool> saveCycle({
+    required String startDate,
+    required int cycleLength,
+    required int periodLength,
+  }) async {
+    final token = await storage.read(key: "access");
+
+    final response = await http.post(
+      Uri.parse("$baseUrl/cycles/create/"),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode({
+        "start_date": startDate,
+        "cycle_length": cycleLength,
+        "period_length": periodLength,
+      }),
+    );
+
+    return response.statusCode == 201;
+  }
+
+  // 🔮 GET PREDICTION  ✅ INSIDE CLASS
+  static Future<Map<String, dynamic>?> getPrediction() async {
+    final token = await storage.read(key: "access");
+
+    final response = await http.get(
+      Uri.parse("$baseUrl/predict/"),
+      headers: {
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    if (response.statusCode == 200) {
+      final data = jsonDecode(response.body);
+      if (data is Map<String, dynamic> &&
+          data.containsKey("predicted_next_period")) {
+        return data;
+      }
+    }
+    return null;
+  }
+  // 🧠 SUBMIT QUIZ
+  static Future<bool> submitQuiz(Map<String, dynamic> answers) async {
+    final token = await storage.read(key: "access");
+
+    final response = await http.post(
+      Uri.parse("$baseUrl/quiz/submit/"),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(answers),
+    );
+
+    return response.statusCode == 200;
+  }
+
+  static Future<void> cacheUserInfo({String? username, String? email}) async {
+    if (username != null) {
+      await storage.write(key: _usernameKey, value: username);
+    }
+    if (email != null) {
+      await storage.write(key: _emailKey, value: email);
+    }
+  }
+
+  static Future<Map<String, String?>> loadUserInfo() async {
+    final username = await storage.read(key: _usernameKey);
+    final email = await storage.read(key: _emailKey);
+    return {
+      "username": username,
+      "email": email,
+    };
+  }
+}
