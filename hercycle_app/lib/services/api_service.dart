@@ -8,6 +8,8 @@ class ApiService {
   static const String _registrationKey = "has_registered";
   static const String _usernameKey = "cached_username";
   static const String _emailKey = "cached_email";
+  static const String _weeklyInsightsKey = "pref_weekly_insights";
+  static const String _cycleReminderKey = "pref_cycle_reminders";
 
   // 🔐 LOGIN
   static Future<bool> login(String username, String password) async {
@@ -70,6 +72,57 @@ class ApiService {
       }
     }
     return null;
+  }
+
+  static Future<Map<String, dynamic>?> getUserProfile() async {
+    final token = await storage.read(key: "access");
+    if (token == null) {
+      return null;
+    }
+    final response = await http.get(
+      Uri.parse("$baseUrl/users/profile/"),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+    if (response.statusCode == 200) {
+      final decoded = jsonDecode(response.body);
+      if (decoded is Map<String, dynamic>) {
+        return decoded;
+      }
+    }
+    return null;
+  }
+
+  static Future<http.Response> updateUserProfile({
+    String? username,
+    String? email,
+    String? password,
+  }) async {
+    final token = await storage.read(key: "access");
+    final payload = <String, String>{};
+    if (username != null) {
+      payload["username"] = username;
+    }
+    if (email != null) {
+      payload["email"] = email;
+    }
+    if (password != null) {
+      payload["password"] = password;
+    }
+    if (token == null) {
+      return http.Response("Unauthorized", 401);
+    }
+
+    return await http.patch(
+      Uri.parse("$baseUrl/users/profile/"),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+      body: jsonEncode(payload),
+    );
   }
 
   static Future<List<dynamic>> fetchCycles() async {
@@ -190,5 +243,50 @@ class ApiService {
       "username": username,
       "email": email,
     };
+  }
+
+  static Future<Map<String, bool>> loadPreferences() async {
+    final weekly = await storage.read(key: _weeklyInsightsKey);
+    final reminders = await storage.read(key: _cycleReminderKey);
+    return {
+      "weeklyInsights": weekly != 'false',
+      "cycleReminders": reminders != 'false',
+    };
+  }
+
+  static Future<void> cachePreferences({
+    bool? weeklyInsights,
+    bool? cycleReminders,
+  }) async {
+    if (weeklyInsights != null) {
+      await storage.write(
+        key: _weeklyInsightsKey,
+        value: weeklyInsights ? 'true' : 'false',
+      );
+    }
+    if (cycleReminders != null) {
+      await storage.write(
+        key: _cycleReminderKey,
+        value: cycleReminders ? 'true' : 'false',
+      );
+    }
+  }
+
+  static Future<bool> usernameExists(String username) async {
+    final uri = Uri.parse("$baseUrl/users/exists/?username=${Uri.encodeQueryComponent(username)}");
+    final response = await http.get(
+      uri,
+      headers: {
+        "Content-Type": "application/json",
+      },
+    );
+    if (response.statusCode != 200) {
+      return false;
+    }
+    final decoded = jsonDecode(response.body);
+    if (decoded is Map<String, dynamic>) {
+      return decoded['exists'] == true;
+    }
+    return false;
   }
 }

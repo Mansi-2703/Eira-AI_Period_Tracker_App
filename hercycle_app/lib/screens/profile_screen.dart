@@ -1,3 +1,5 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
 import '../services/api_service.dart';
@@ -5,14 +7,10 @@ import '../theme/hercycle_palette.dart';
 
 class ProfileScreen extends StatefulWidget {
   final Map<String, dynamic>? quizData;
-  final String? cachedUsername;
-  final String? cachedEmail;
 
   const ProfileScreen({
     super.key,
     this.quizData,
-    this.cachedUsername,
-    this.cachedEmail,
   });
 
   @override
@@ -20,23 +18,63 @@ class ProfileScreen extends StatefulWidget {
 }
 
 class _ProfileScreenState extends State<ProfileScreen> {
-  String? _username;
-  String? _email;
+  final _formKey = GlobalKey<FormState>();
+  final TextEditingController _usernameController = TextEditingController();
+  final TextEditingController _emailController = TextEditingController();
+  final TextEditingController _passwordController = TextEditingController();
+  final TextEditingController _confirmPasswordController =
+      TextEditingController();
+  bool _loadingProfile = true;
+  bool _savingProfile = false;
+  bool _editingAccount = false;
+  bool _weeklyInsights = true;
+  bool _cycleReminders = true;
 
   @override
   void initState() {
     super.initState();
-    _username = widget.cachedUsername;
-    _email = widget.cachedEmail;
-    _loadCachedInfo();
+    _loadPreferences();
+    _fetchUserProfile();
   }
 
-  Future<void> _loadCachedInfo() async {
-    final info = await ApiService.loadUserInfo();
+  @override
+  void dispose() {
+    _usernameController.dispose();
+    _emailController.dispose();
+    _passwordController.dispose();
+    _confirmPasswordController.dispose();
+    super.dispose();
+  }
+
+  Future<void> _fetchUserProfile() async {
+    await ApiService.getUserProfile();
     if (!mounted) return;
     setState(() {
-      _username = info['username'] ?? _username;
-      _email = info['email'] ?? _email;
+      _loadingProfile = false;
+    });
+  }
+
+  Future<void> _loadPreferences() async {
+    final prefs = await ApiService.loadPreferences();
+    if (!mounted) return;
+    setState(() {
+      _weeklyInsights = prefs['weeklyInsights'] ?? _weeklyInsights;
+      _cycleReminders = prefs['cycleReminders'] ?? _cycleReminders;
+    });
+  }
+
+  void _toggleAccountEditing(bool enable) {
+    if (!enable) {
+      _formKey.currentState?.reset();
+    }
+    setState(() {
+      _editingAccount = enable;
+      if (enable) {
+        _usernameController.clear();
+        _emailController.clear();
+      }
+      _passwordController.clear();
+      _confirmPasswordController.clear();
     });
   }
 
@@ -65,6 +103,115 @@ class _ProfileScreenState extends State<ProfileScreen> {
     );
   }
 
+  String? _validateUsername(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return 'Please enter a username';
+    }
+    if (trimmed.length < 3) {
+      return 'Username needs at least 3 characters';
+    }
+    return null;
+  }
+
+  String? _validateEmail(String? value) {
+    final trimmed = value?.trim();
+    if (trimmed == null || trimmed.isEmpty) {
+      return 'Please enter an email';
+    }
+    final emailPattern = RegExp(r'^[^@]+@[^@]+\.[^@]+');
+    if (!emailPattern.hasMatch(trimmed)) {
+      return 'Enter a valid email';
+    }
+    return null;
+  }
+
+  Future<void> _submitProfile() async {
+    final username = _usernameController.text.trim();
+    final email = _emailController.text.trim();
+    final password = _passwordController.text;
+    final confirmPassword = _confirmPasswordController.text;
+
+    if (!_formKey.currentState!.validate()) {
+      return;
+    }
+
+    setState(() {
+      _savingProfile = true;
+    });
+
+    final usernameExists = await ApiService.usernameExists(username);
+    if (!mounted) return;
+    if (!usernameExists) {
+      setState(() {
+        _savingProfile = false;
+      });
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Username not found in the system')),
+      );
+      return;
+    }
+
+    final response = await ApiService.updateUserProfile(
+      username: username,
+      email: email,
+      password: password,
+    );
+
+    if (!mounted) return;
+    setState(() {
+      _savingProfile = false;
+    });
+
+    if (response.statusCode == 200) {
+      await ApiService.cacheUserInfo(
+        username: username.isNotEmpty ? username : null,
+        email: email.isNotEmpty ? email : null,
+      );
+      _toggleAccountEditing(false);
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(content: Text('Account saved successfully')),
+      );
+    } else {
+      final errorMessage = _extractErrorMessage(response.body);
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(errorMessage)),
+      );
+    }
+  }
+
+  void _handleWeeklyInsightsChange(bool value) {
+    setState(() {
+      _weeklyInsights = value;
+    });
+    ApiService.cachePreferences(weeklyInsights: value);
+  }
+
+  void _handleCycleRemindersChange(bool value) {
+    setState(() {
+      _cycleReminders = value;
+    });
+    ApiService.cachePreferences(cycleReminders: value);
+  }
+
+  String _extractErrorMessage(String body) {
+    try {
+      final decoded = jsonDecode(body);
+      if (decoded is Map<String, dynamic> && decoded.isNotEmpty) {
+        final firstValue = decoded.values.first;
+        if (firstValue is List && firstValue.isNotEmpty) {
+          return firstValue.first.toString();
+        }
+        if (firstValue is String) {
+          return firstValue;
+        }
+      }
+    } catch (_) {
+      // fall through to default
+    }
+    return 'Unable to save changes right now. Please try again later.';
+  }
+
   @override
   Widget build(BuildContext context) {
     final bodyStyle = Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -85,16 +232,11 @@ class _ProfileScreenState extends State<ProfileScreen> {
           children: [
             Text('Account', style: _sectionTitleStyle(context)),
             const SizedBox(height: 8),
-            _buildDetailRow(
-              icon: Icons.person,
-              label: 'Username',
-              value: _username ?? 'Not set yet',
-            ),
-            _buildDetailRow(
-              icon: Icons.email,
-              label: 'Email',
-              value: _email ?? 'Not set yet',
-            ),
+            _buildAccountSection(context),
+            const SizedBox(height: 24),
+            Text('Experience preferences', style: _sectionTitleStyle(context)),
+            const SizedBox(height: 8),
+            _buildPreferencesCard(context),
             const SizedBox(height: 16),
             const Divider(height: 1),
             const SizedBox(height: 16),
@@ -114,7 +256,8 @@ class _ProfileScreenState extends State<ProfileScreen> {
             _buildDetailRow(
               icon: Icons.sync_alt,
               label: 'Prediction refresh',
-              value: 'We refresh predictions and cycle data every time you open the app.',
+              value:
+                  'We refresh predictions and cycle data every time you open the app.',
               onTap: () => _showInfoDialog(
                 'Prediction refresh',
                 'New cycle logs and quiz responses are pulled in on every visit so the calendar stays aligned with your latest inputs.',
@@ -151,6 +294,223 @@ class _ProfileScreenState extends State<ProfileScreen> {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildAccountSection(BuildContext context) {
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              if (_loadingProfile)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 12),
+                  child: LinearProgressIndicator(
+                    minHeight: 3,
+                    backgroundColor: HerCyclePalette.deep,
+                    color: HerCyclePalette.magenta,
+                  ),
+                ),
+              if (!_editingAccount) ...[
+                const SizedBox(height: 12),
+                ElevatedButton(
+                  style: ElevatedButton.styleFrom(
+                    alignment: Alignment.center,
+                    backgroundColor: HerCyclePalette.deep,
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  onPressed: () => _toggleAccountEditing(true),
+                  child: const Text('Reset your password or email'),
+                ),
+              ] else ...[
+                _buildTextField(
+                  label: 'Username',
+                  hint: 'e.g. aradia@hercycle',
+                  controller: _usernameController,
+                  validator: _validateUsername,
+                  keyboardType: TextInputType.name,
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 12),
+                _buildTextField(
+                  label: 'Email',
+                  hint: 'name@youremail.com',
+                  controller: _emailController,
+                  validator: _validateEmail,
+                  keyboardType: TextInputType.emailAddress,
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _passwordController,
+                  obscureText: true,
+                  style: const TextStyle(color: HerCyclePalette.deep),
+                  decoration: InputDecoration(
+                    labelText: 'New password',
+                    hintText: 'At least 8 characters',
+                    labelStyle: const TextStyle(color: HerCyclePalette.deep),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  validator: (value) {
+                    final pwd = value ?? '';
+                    if (pwd.isEmpty) return 'Please enter a password';
+                    if (pwd.length < 8) {
+                      return 'Password needs at least 8 characters';
+                    }
+                    return null;
+                  },
+                  textInputAction: TextInputAction.next,
+                ),
+                const SizedBox(height: 12),
+                TextFormField(
+                  controller: _confirmPasswordController,
+                  obscureText: true,
+                  style: const TextStyle(color: HerCyclePalette.deep),
+                  decoration: InputDecoration(
+                    labelText: 'Confirm password',
+                    labelStyle: const TextStyle(color: HerCyclePalette.deep),
+                    border: OutlineInputBorder(
+                      borderRadius: BorderRadius.circular(12),
+                    ),
+                  ),
+                  validator: (value) {
+                    final confirm = value ?? '';
+                    if (confirm.isEmpty) return 'Please confirm your password';
+                    if (confirm != _passwordController.text) {
+                      return 'Passwords must match';
+                    }
+                    return null;
+                  },
+                  textInputAction: TextInputAction.done,
+                ),
+                const SizedBox(height: 16),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton(
+                        onPressed: _savingProfile ? null : _submitProfile,
+                        style: ElevatedButton.styleFrom(
+                          alignment: Alignment.center,
+                          backgroundColor: HerCyclePalette.deep,
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        child: _savingProfile
+                            ? const SizedBox(
+                                height: 20,
+                                width: 20,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  color: Colors.white,
+                                ),
+                              )
+                            : const Text('Save account changes'),
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: OutlinedButton(
+                        onPressed:
+                            _savingProfile ? null : () => _toggleAccountEditing(false),
+                        style: OutlinedButton.styleFrom(
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          side: const BorderSide(color: HerCyclePalette.deep),
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                        ),
+                        child: const Text('Cancel'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildTextField({
+    required String label,
+    required String hint,
+    required TextEditingController controller,
+    required String? Function(String?) validator,
+    required TextInputType keyboardType,
+    required TextInputAction textInputAction,
+  }) {
+    return TextFormField(
+      controller: controller,
+      validator: validator,
+      keyboardType: keyboardType,
+      textInputAction: textInputAction,
+      style: const TextStyle(color: HerCyclePalette.deep),
+      decoration: InputDecoration(
+        labelText: label,
+        hintText: hint,
+        labelStyle: const TextStyle(color: HerCyclePalette.deep),
+        border: OutlineInputBorder(
+          borderRadius: BorderRadius.circular(12),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPreferencesCard(BuildContext context) {
+    final subtitleStyle = Theme.of(context).textTheme.bodySmall?.copyWith(
+          color: HerCyclePalette.deep.withOpacity(0.75),
+        );
+
+    return Card(
+      elevation: 2,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(16),
+      ),
+      child: Column(
+        children: [
+          SwitchListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            title: Text('Weekly insights', style: _detailLabelStyle()),
+            subtitle: Text(
+              'Receive a quick digest after each logged cycle to recap patterns.',
+              style: subtitleStyle,
+            ),
+            value: _weeklyInsights,
+            onChanged: _handleWeeklyInsightsChange,
+            activeColor: HerCyclePalette.magenta,
+          ),
+          const Divider(height: 1),
+          SwitchListTile(
+            contentPadding:
+                const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+            title: Text('Reminders & nudges', style: _detailLabelStyle()),
+            subtitle: Text(
+              'Prompt reminders help you log data consistently and stay on track.',
+              style: subtitleStyle,
+            ),
+            value: _cycleReminders,
+            onChanged: _handleCycleRemindersChange,
+            activeColor: HerCyclePalette.magenta,
+          ),
+        ],
       ),
     );
   }

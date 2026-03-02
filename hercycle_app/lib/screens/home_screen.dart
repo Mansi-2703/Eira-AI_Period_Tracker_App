@@ -24,7 +24,6 @@ class _HomeScreenState extends State<HomeScreen> {
   bool quizCompleted = false;
   Map<String, dynamic>? quizData;
   String? _cachedUsername;
-  String? _cachedEmail;
 
   @override
   void initState() {
@@ -76,21 +75,20 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
     setState(() {
       _cachedUsername = info["username"];
-      _cachedEmail = info["email"];
     });
   }
 
-  void _openProfileScreen() {
-    Navigator.push(
+  Future<void> _openProfileScreen() async {
+    await Navigator.push(
       context,
       MaterialPageRoute(
         builder: (_) => ProfileScreen(
-          cachedUsername: _cachedUsername,
-          cachedEmail: _cachedEmail,
           quizData: quizData,
         ),
       ),
     );
+    if (!mounted) return;
+    _loadCachedUserInfo();
   }
 
   String get _profileInitial {
