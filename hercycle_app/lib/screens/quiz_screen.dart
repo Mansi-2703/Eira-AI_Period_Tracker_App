@@ -286,12 +286,27 @@ class _QuizScreenState extends State<QuizScreen>
   Widget build(BuildContext context) {
     final q = questions[currentStep];
     return Scaffold(
-      backgroundColor: HerCyclePalette.light.withOpacity(0.25),
+      backgroundColor: Colors.white,
       body: SafeArea(
         child: Column(
           children: [
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 18),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 22),
+              decoration: BoxDecoration(
+                gradient: HerCyclePalette.vibrantGradient,
+                borderRadius: const BorderRadius.only(
+                  bottomLeft: Radius.circular(20),
+                  bottomRight: Radius.circular(20),
+                ),
+                boxShadow: [
+                  BoxShadow(
+                    color: HerCyclePalette.deep.withOpacity(0.15),
+                    blurRadius: 12,
+                    offset: const Offset(0, 6),
+                  ),
+                ],
+              ),
               child: Row(
                 children: [
                   ScaleTransition(
@@ -299,19 +314,20 @@ class _QuizScreenState extends State<QuizScreen>
                     child: Container(
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
-                        gradient: HerCyclePalette.vibrantGradient,
+                        color: Colors.white.withOpacity(0.9),
                         shape: BoxShape.circle,
                         boxShadow: [
                           BoxShadow(
-                            color: HerCyclePalette.deep.withOpacity(0.3),
-                            blurRadius: 12,
-                            offset: const Offset(0, 6),
+                            color: Colors.black.withOpacity(0.2),
+                            blurRadius: 8,
+                            offset: const Offset(0, 4),
                           ),
                         ],
                       ),
                       child: const Icon(
-                        Icons.heart_broken,
-                        color: Colors.white,
+                        Icons.favorite,
+                        color: HerCyclePalette.magenta,
+                        size: 24,
                       ),
                     ),
                   ),
@@ -324,13 +340,16 @@ class _QuizScreenState extends State<QuizScreen>
                           "Menstrual check-in",
                           style: TextStyle(
                             fontSize: 20,
-                            fontWeight: FontWeight.w600,
-                            color: HerCyclePalette.deep,
+                            fontWeight: FontWeight.w700,
+                            color: Colors.white,
                           ),
                         ),
                         Text(
                           "Step ${currentStep + 1} of ${questions.length}",
-                          style: const TextStyle(color: Colors.grey),
+                          style: const TextStyle(
+                            color: Colors.white,
+                            fontWeight: FontWeight.w500,
+                          ),
                         ),
                       ],
                     ),
@@ -339,7 +358,10 @@ class _QuizScreenState extends State<QuizScreen>
                     onPressed: submitQuiz,
                     child: const Text(
                       "Skip",
-                      style: TextStyle(color: Colors.white),
+                      style: TextStyle(
+                        color: Colors.white,
+                        fontWeight: FontWeight.w600,
+                      ),
                     ),
                   ),
                 ],
@@ -347,75 +369,179 @@ class _QuizScreenState extends State<QuizScreen>
             ),
             Expanded(
               child: Container(
-                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 padding: const EdgeInsets.all(24),
                 decoration: BoxDecoration(
                   color: Colors.white,
-                  borderRadius: BorderRadius.circular(28),
+                  borderRadius: BorderRadius.circular(24),
                   boxShadow: [
                     BoxShadow(
-                      color: HerCyclePalette.deep.withOpacity(0.1),
-                      blurRadius: 24,
-                      offset: const Offset(0, 10),
+                      color: HerCyclePalette.magenta.withOpacity(0.15),
+                      blurRadius: 20,
+                      offset: const Offset(0, 8),
                     ),
                   ],
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    Chip(
-                      backgroundColor: HerCyclePalette.light.withOpacity(0.7),
-                      label: Text(
+                    // Question Category Chip
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 14,
+                        vertical: 8,
+                      ),
+                      decoration: BoxDecoration(
+                        color: HerCyclePalette.blush.withOpacity(0.2),
+                        borderRadius: BorderRadius.circular(12),
+                        border: Border.all(
+                          color: HerCyclePalette.blush,
+                          width: 1.5,
+                        ),
+                      ),
+                      child: Text(
                         q["title"],
                         style: const TextStyle(
-                          color: Colors.white,
-                          fontWeight: FontWeight.bold,
+                          color: HerCyclePalette.magenta,
+                          fontWeight: FontWeight.w700,
+                          fontSize: 12,
+                          letterSpacing: 0.5,
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    const SizedBox(height: 18),
+                    // Question Text - Large and Prominent
                     Text(
                       q["question"],
                       style: const TextStyle(
-                        fontSize: 22,
-                        fontWeight: FontWeight.w600,
+                        fontSize: 28,
+                        fontWeight: FontWeight.w700,
+                        color: HerCyclePalette.deep,
+                        height: 1.3,
                       ),
                     ),
-                    const SizedBox(height: 20),
-                    Wrap(
-                      spacing: 12,
-                      runSpacing: 12,
-                      children: q["options"].map<Widget>((option) {
-                        final bool isSelected =
-                            answers[q["key"]] == option["value"];
-                        return ChoiceChip(
-                          labelPadding: const EdgeInsets.symmetric(
-                            horizontal: 18,
-                            vertical: 12,
-                          ),
-                          label: Text(
-                            option["label"],
-                            style: TextStyle(
-                              color: isSelected
-                                  ? Colors.white
-                                  : HerCyclePalette.deep,
-                              fontWeight: FontWeight.w500,
+                    const SizedBox(height: 28),
+                    // Options List - Structured Vertical Layout
+                    Expanded(
+                      child: ListView.separated(
+                        itemCount: q["options"].length,
+                        separatorBuilder: (_, __) =>
+                            const SizedBox(height: 12),
+                        itemBuilder: (_, index) {
+                          final option = q["options"][index];
+                          final bool isSelected =
+                              answers[q["key"]] == option["value"];
+                          return GestureDetector(
+                            onTap: () {
+                              nextStep(option["value"]);
+                            },
+                            child: AnimatedContainer(
+                              duration: const Duration(milliseconds: 250),
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 16,
+                                vertical: 16,
+                              ),
+                              decoration: BoxDecoration(
+                                gradient: isSelected
+                                    ? HerCyclePalette.softGradient
+                                    : null,
+                                color: isSelected
+                                    ? null
+                                    : HerCyclePalette.light.withOpacity(0.6),
+                                borderRadius: BorderRadius.circular(16),
+                                border: Border.all(
+                                  color: isSelected
+                                      ? HerCyclePalette.magenta
+                                      : HerCyclePalette.blush.withOpacity(0.5),
+                                  width: isSelected ? 2.5 : 2,
+                                ),
+                                boxShadow: isSelected
+                                    ? [
+                                        BoxShadow(
+                                          color: HerCyclePalette.magenta
+                                              .withOpacity(0.25),
+                                          blurRadius: 14,
+                                          offset: const Offset(0, 6),
+                                        ),
+                                      ]
+                                    : [
+                                        BoxShadow(
+                                          color: Colors.black
+                                              .withOpacity(0.04),
+                                          blurRadius: 4,
+                                          offset: const Offset(0, 2),
+                                        ),
+                                      ],
+                              ),
+                              child: Row(
+                                children: [
+                                  // Selection Indicator
+                                  Container(
+                                    width: 24,
+                                    height: 24,
+                                    decoration: BoxDecoration(
+                                      shape: BoxShape.circle,
+                                      border: Border.all(
+                                        color: isSelected
+                                            ? Colors.white
+                                            : HerCyclePalette.blush,
+                                        width: 2.5,
+                                      ),
+                                      color: isSelected
+                                          ? Colors.white
+                                          : Colors.transparent,
+                                    ),
+                                    child: isSelected
+                                        ? Center(
+                                            child: Container(
+                                              width: 10,
+                                              height: 10,
+                                              decoration: BoxDecoration(
+                                                shape: BoxShape.circle,
+                                                gradient:
+                                                    HerCyclePalette
+                                                        .softGradient,
+                                              ),
+                                            ),
+                                          )
+                                        : null,
+                                  ),
+                                  const SizedBox(width: 16),
+                                  // Option Text
+                                  Expanded(
+                                    child: Text(
+                                      option["label"],
+                                      style: TextStyle(
+                                        fontSize: 16,
+                                        fontWeight: FontWeight.w600,
+                                        color: isSelected
+                                            ? Colors.white
+                                            : HerCyclePalette.deep,
+                                      ),
+                                    ),
+                                  ),
+                                  if (isSelected)
+                                    Icon(
+                                      Icons.check_circle_outline,
+                                      color: Colors.white,
+                                      size: 24,
+                                    ),
+                                ],
+                              ),
                             ),
-                          ),
-                          selected: isSelected,
-                          selectedColor: HerCyclePalette.deep,
-                          surfaceTintColor: Colors.white,
-                          backgroundColor: HerCyclePalette.light.withOpacity(
-                            0.6,
-                          ),
-                          onSelected: (_) => nextStep(option["value"]),
-                        );
-                      }).toList(),
+                          );
+                        },
+                      ),
                     ),
-                    const Spacer(),
+                    const SizedBox(height: 16),
+                    // Privacy Notice
                     const Text(
                       "Your answers stay private and only help us tune cycle predictions.",
-                      style: TextStyle(color: Colors.grey, fontSize: 12),
+                      style: TextStyle(
+                        color: Colors.grey,
+                        fontSize: 12,
+                        height: 1.4,
+                      ),
                     ),
                   ],
                 ),

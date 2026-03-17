@@ -90,20 +90,33 @@ def _require_env(var_name: str) -> str:
     return value
 
 
-DEFAULT_DB_ENGINE = os.environ.get('DJANGO_DB_ENGINE', 'django.db.backends.postgresql')
-if DEFAULT_DB_ENGINE != 'django.db.backends.postgresql':
-    raise ImproperlyConfigured('HerCycle requires DJANGO_DB_ENGINE=django.db.backends.postgresql.')
+# For development, allow SQLite; for production, require PostgreSQL
+USE_POSTGRES = os.environ.get('USE_POSTGRES', 'False').lower() == 'true'
 
-DATABASES = {
-    'default': {
-        'ENGINE': DEFAULT_DB_ENGINE,
-        'NAME': _require_env('DJANGO_DB_NAME'),
-        'USER': _require_env('DJANGO_DB_USER'),
-        'PASSWORD': _require_env('DJANGO_DB_PASSWORD'),
-        'HOST': os.environ.get('DJANGO_DB_HOST', 'localhost'),
-        'PORT': os.environ.get('DJANGO_DB_PORT', '5432'),
+if USE_POSTGRES:
+    DEFAULT_DB_ENGINE = os.environ.get('DJANGO_DB_ENGINE', 'django.db.backends.postgresql')
+    if DEFAULT_DB_ENGINE != 'django.db.backends.postgresql':
+        raise ImproperlyConfigured('HerCycle requires DJANGO_DB_ENGINE=django.db.backends.postgresql.')
+    
+    DATABASES = {
+        'default': {
+            'ENGINE': DEFAULT_DB_ENGINE,
+            'NAME': _require_env('DJANGO_DB_NAME'),
+            'USER': _require_env('DJANGO_DB_USER'),
+            'PASSWORD': _require_env('DJANGO_DB_PASSWORD'),
+            'HOST': os.environ.get('DJANGO_DB_HOST', 'localhost'),
+            'PORT': os.environ.get('DJANGO_DB_PORT', '5432'),
+        }
     }
-}
+else:
+    # Development with SQLite
+    DATABASES = {
+        'default': {
+            'ENGINE': 'django.db.backends.sqlite3',
+            'NAME': os.path.join(BASE_DIR, 'db.sqlite3'),
+        }
+    }
+
 
 
 # Password validation

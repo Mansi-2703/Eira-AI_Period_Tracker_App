@@ -1,0 +1,51 @@
+# ML Project specific ignore rules
+
+# Environment variables
+.env
+.env.local
+
+# Virtual environment
+ml_venv/
+.venv/
+venv/
+ENV/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+*.egg
+build/
+dist/
+
+# Model artifacts and data
+*.h5
+*.pkl
+*.joblib
+*.model
+data/
+
+# Jupyter Notebooks
+.ipynb_checkpoints/
+*.ipynb
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+
+# IDE cache
+.pytest_cache/
+.coverage
+htmlcov/

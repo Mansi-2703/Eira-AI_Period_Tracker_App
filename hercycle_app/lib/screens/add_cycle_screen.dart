@@ -66,18 +66,18 @@ class _AddCycleScreenState extends State<AddCycleScreen> {
     }
 
     // 🧠 Biological sanity checks
-    if (cycleLength < 15 || cycleLength > 60) {
+    if (cycleLength < 20 || cycleLength > 45) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text("Cycle length should be between 15–60 days"),
+          content: Text("Cycle length should be between 20–45 days"),
         ),
       );
       return;
     }
 
-    if (periodLength < 1 || periodLength > 10) {
+    if (periodLength < 2 || periodLength > 10) {
       ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(content: Text("Period length should be 1–10 days")),
+        const SnackBar(content: Text("Period length should be 2–10 days")),
       );
       return;
     }

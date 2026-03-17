@@ -68,6 +68,14 @@ flutter:
 
   assets:
     - assets/images/logo.png
+    - assets/images/pms.png
+    - assets/images/pmdd.png
+    - assets/images/pcos.png
+    - assets/images/dysmenorrhea.png
+    - assets/images/menorrhagia.png
+    - assets/images/endometriosis.png
+    - assets/images/anemia.png
+    - assets/images/menopause.png
 
 flutter_icons:
   android: true

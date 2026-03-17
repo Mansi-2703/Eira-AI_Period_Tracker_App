@@ -1,22 +1,75 @@
 # Root-level ignores for multi-project workspace
 
-# Python caches
+# Environment variables and secrets
+.env
+.env.local
+.env.*.local
+*.env
+
+# IDE and Editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+*.sublime-*
+.DS_Store
+
+# Python caches and virtual environments
 **/__pycache__/
 *.pyc
-
-# Backend sensitive or environment files
-backend/db.sqlite3
+*.pyo
+*.egg-info/
+*.eggs/
+.Python
+backend/.venv/
 backend/venv/
-
-# ML artifacts
 hercycle_ml/ml_venv/
+hercycle_ml/venv/
 
-# Flutter app caches (some already ignored per module .gitignore)
+# Django/Backend specific
+backend/db.sqlite3
+backend/local_settings.py
+backend/config/settings.local.py
+backend/.env
+backend/.env.local
+
+# Android specific
+hercycle_app/android/local.properties
+hercycle_app/android/key.properties
+*.jks
+*.keystore
+
+# Gradle
+.gradle/
+*.gradle
+
+# Flutter specific
 hercycle_app/.dart_tool/
+hercycle_app/.flutter-plugins
 hercycle_app/.flutter-plugins-dependencies
 hercycle_app/.metadata
 hercycle_app/build/
+hercycle_app/windows/flutter/
+hercycle_app/macos/Flutter/
+hercycle_app/.ios/
 
-# Misc
+# OS specific
 .DS_Store
-Let me create the original file content to restore it.hercycle_app/
+Thumbs.db
+
+# Logs
+*.log
+logs/
+
+# Archives
+*.zip
+*.7z
+*.rar
+
+# IDE specific
+.vscode/launch.json
+.vscode/settings.json
+.vscode/.env
+.idea/
+

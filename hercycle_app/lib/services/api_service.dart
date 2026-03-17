@@ -188,7 +188,25 @@ class ApiService {
       }),
     );
 
+    if (response.statusCode != 201) {
+      print('Save cycle error: ${response.statusCode} - ${response.body}');
+    }
     return response.statusCode == 201;
+  }
+
+  // 🗑️ DELETE CYCLE
+  static Future<bool> deleteCycle(dynamic cycleId) async {
+    final token = await storage.read(key: "access");
+
+    final response = await http.delete(
+      Uri.parse("$baseUrl/cycles/log/$cycleId/"),
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": "Bearer $token",
+      },
+    );
+
+    return response.statusCode == 204 || response.statusCode == 200;
   }
 
   // 🔮 GET PREDICTION  ✅ INSIDE CLASS
@@ -288,5 +306,16 @@ class ApiService {
       return decoded['exists'] == true;
     }
     return false;
+  }
+
+  // 🚪 LOGOUT
+  static Future<void> logout() async {
+    // Clear stored tokens and user data
+    await storage.delete(key: "access");
+    await storage.delete(key: _registrationKey);
+    await storage.delete(key: _usernameKey);
+    await storage.delete(key: _emailKey);
+    await storage.delete(key: _weeklyInsightsKey);
+    await storage.delete(key: _cycleReminderKey);
   }
 }

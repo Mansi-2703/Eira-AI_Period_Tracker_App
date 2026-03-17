@@ -7,6 +7,7 @@ import '../theme/hercycle_palette.dart';
 import '../widgets/prediction_card.dart';
 import '../widgets/calendar_preview.dart';
 import '../widgets/prediction_charts.dart';
+import '../widgets/disorders_widget.dart';
 import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -169,6 +170,16 @@ class _HomeScreenState extends State<HomeScreen> {
               Navigator.pop(sheetContext);
             }
             return saved;
+          },
+          onCycleEdited: ({Map<String, dynamic>? cycle}) async {
+            final saved = await _handleCycleForm(entry: cycle);
+            if (saved && mounted) {
+              Navigator.pop(sheetContext);
+            }
+            return saved;
+          },
+          onCycleDeleted: (cycleId) async {
+            await _deleteCycle(cycleId);
           },
         );
       },
@@ -718,6 +729,105 @@ class _HomeScreenState extends State<HomeScreen> {
     return saved;
   }
 
+  Future<void> _deleteCycle(dynamic cycleId) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Delete cycle'),
+        content: const Text('Are you sure you want to delete this cycle? This action cannot be undone.'),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: const Text('Cancel'),
+          ),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.red),
+            child: const Text('Delete', style: TextStyle(color: Colors.white)),
+          ),
+        ],
+      ),
+    );
+
+    if (confirmed != true) return;
+
+    try {
+      // Show loading
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Row(
+            children: [
+              SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(
+                  strokeWidth: 2,
+                  valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                ),
+              ),
+              SizedBox(width: 12),
+              Text('Deleting...'),
+            ],
+          ),
+          duration: Duration(seconds: 10),
+        ),
+      );
+
+      // Delete via API
+      final success = await ApiService.deleteCycle(cycleId);
+      if (!mounted) return;
+
+      // Clear loading snackbar
+      ScaffoldMessenger.of(context).clearSnackBars();
+
+      if (success) {
+        // Reload data
+        await loadCycles();
+        await loadPrediction();
+        
+        // Close calendar sheet
+        Navigator.pop(context);
+        
+        // Show success
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.check_circle, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Cycle deleted successfully'),
+              ],
+            ),
+            duration: Duration(seconds: 2),
+            backgroundColor: Colors.green,
+          ),
+        );
+      } else {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Row(
+              children: [
+                Icon(Icons.error, color: Colors.white),
+                SizedBox(width: 12),
+                Text('Failed to delete cycle'),
+              ],
+            ),
+            duration: Duration(seconds: 3),
+            backgroundColor: Colors.red,
+          ),
+        );
+      }
+    } catch (e) {
+      if (!mounted) return;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text('Error: $e'),
+          backgroundColor: Colors.red,
+        ),
+      );
+    }
+  }
+
   Future<bool> _showCycleForm({Map<String, dynamic>? entry}) async {
     final formKey = GlobalKey<FormState>();
     final cycleController = TextEditingController(
@@ -733,14 +843,14 @@ class _HomeScreenState extends State<HomeScreen> {
     } else {
       selectedDate = DateTime.now();
     }
-    bool isSaving = false;
 
     try {
       final result = await showDialog<bool>(
         context: context,
+        barrierDismissible: false,
         builder: (dialogContext) {
           return StatefulBuilder(
-            builder: (context, setState) {
+            builder: (statefulContext, setState) {
               return AlertDialog(
                 title: Text(entry == null ? 'Log period' : 'Update period'),
                 content: Form(
@@ -755,7 +865,7 @@ class _HomeScreenState extends State<HomeScreen> {
                         trailing: const Icon(Icons.calendar_today),
                         onTap: () async {
                           final picked = await showDatePicker(
-                            context: context,
+                            context: dialogContext,
                             initialDate: selectedDate,
                             firstDate: DateTime(2020),
                             lastDate: DateTime.now(),
@@ -802,15 +912,11 @@ class _HomeScreenState extends State<HomeScreen> {
                 ),
                 actions: [
                   TextButton(
-                    onPressed: isSaving
-                        ? null
-                        : () => Navigator.pop(context, false),
+                    onPressed: () => Navigator.pop(dialogContext, false),
                     child: const Text('Cancel'),
                   ),
                   ElevatedButton(
-                    onPressed: isSaving
-                        ? null
-                        : () async {
+                    onPressed: () async {
                             if (!formKey.currentState!.validate()) {
                               return;
                             }
@@ -821,35 +927,35 @@ class _HomeScreenState extends State<HomeScreen> {
                               periodController.text,
                             );
                             if (cycleLength == null || periodLength == null) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              ScaffoldMessenger.of(dialogContext).showSnackBar(
                                 const SnackBar(
                                   content: Text('Please enter valid numbers'),
                                 ),
                               );
                               return;
                             }
-                            if (cycleLength < 15 || cycleLength > 60) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                            if (cycleLength < 20 || cycleLength > 45) {
+                              ScaffoldMessenger.of(dialogContext).showSnackBar(
                                 const SnackBar(
                                   content: Text(
-                                    'Cycle length should be between 15–60 days',
+                                    'Cycle length should be between 20–45 days',
                                   ),
                                 ),
                               );
                               return;
                             }
-                            if (periodLength < 1 || periodLength > 10) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                            if (periodLength < 2 || periodLength > 10) {
+                              ScaffoldMessenger.of(dialogContext).showSnackBar(
                                 const SnackBar(
                                   content: Text(
-                                    'Period length should be between 1–10 days',
+                                    'Period length should be between 2–10 days',
                                   ),
                                 ),
                               );
                               return;
                             }
                             if (periodLength > cycleLength) {
-                              ScaffoldMessenger.of(context).showSnackBar(
+                              ScaffoldMessenger.of(dialogContext).showSnackBar(
                                 const SnackBar(
                                   content: Text(
                                     'Period length cannot exceed cycle length',
@@ -858,15 +964,39 @@ class _HomeScreenState extends State<HomeScreen> {
                               );
                               return;
                             }
-                            setState(() {
-                              isSaving = true;
-                            });
+                            
+                            // Close dialog immediately
+                            Navigator.pop(dialogContext, true);
+                            
+                            // Show loading feedback
+                            ScaffoldMessenger.of(context).showSnackBar(
+                              const SnackBar(
+                                content: Row(
+                                  children: [
+                                    SizedBox(
+                                      width: 16,
+                                      height: 16,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
+                                      ),
+                                    ),
+                                    SizedBox(width: 12),
+                                    Text('Saving...'),
+                                  ],
+                                ),
+                                duration: Duration(seconds: 5),
+                              ),
+                            );
+                            
                             final payloadDate = DateTime(
                               selectedDate.year,
                               selectedDate.month,
                               selectedDate.day,
                             ).toIso8601String().split('T')[0];
-                            final success = entry == null
+                            
+                            final isNewCycle = entry == null || entry['id'] == null;
+                            final success = isNewCycle
                                 ? await ApiService.saveCycle(
                                     startDate: payloadDate,
                                     cycleLength: cycleLength,
@@ -878,30 +1008,52 @@ class _HomeScreenState extends State<HomeScreen> {
                                     cycleLength: cycleLength,
                                     periodLength: periodLength,
                                   );
+                            
                             if (!mounted) return;
+                            
+                            // Remove loading snackbar and show result
+                            ScaffoldMessenger.of(context).clearSnackBars();
+                            
                             if (success) {
-                              Navigator.pop(context, true);
+                              // Don't close sheet here - let the callback handle it
+                              // Refresh data
+                              await loadCycles();
+                              await loadPrediction();
+                              
+                              ScaffoldMessenger.of(context).showSnackBar(
+                                SnackBar(
+                                  content: Row(
+                                    children: [
+                                      const Icon(Icons.check_circle, color: Colors.white),
+                                      const SizedBox(width: 12),
+                                      Text(isNewCycle ? 'Cycle added successfully' : 'Period updated successfully'),
+                                    ],
+                                  ),
+                                  duration: const Duration(seconds: 2),
+                                  backgroundColor: Colors.green,
+                                ),
+                              );
                             } else {
                               ScaffoldMessenger.of(context).showSnackBar(
                                 const SnackBar(
-                                  content: Text('Failed to save cycle'),
+                                  content: Row(
+                                    children: [
+                                      Icon(Icons.error, color: Colors.white),
+                                      SizedBox(width: 12),
+                                      Text('Failed to save cycle'),
+                                    ],
+                                  ),
+                                  duration: Duration(seconds: 3),
+                                  backgroundColor: Colors.red,
                                 ),
                               );
-                              setState(() {
-                                isSaving = false;
-                              });
                             }
                           },
                     child: SizedBox(
                       height: 24,
-                      child: isSaving
-                          ? const CircularProgressIndicator(
-                              strokeWidth: 2,
-                              color: Colors.white,
-                            )
-                          : Text(
-                              entry == null ? 'Log period' : 'Update period',
-                            ),
+                      child: Text(
+                        entry == null ? 'Log period' : 'Update period',
+                      ),
                     ),
                   ),
                 ],
@@ -998,6 +1150,8 @@ class _HomeScreenState extends State<HomeScreen> {
                 style: TextStyle(fontSize: 16, fontWeight: FontWeight.bold),
               ),
             ),
+            const SizedBox(height: 20),
+            const DisordersHorizontalList(),
             const SizedBox(height: 24),
             if (!quizLoading && !quizCompleted) ...[
               Card(
@@ -1070,12 +1224,16 @@ class CalendarDetailSheet extends StatefulWidget {
   final List<dynamic> cycles;
   final Map<String, dynamic>? prediction;
   final Future<bool> Function({Map<String, dynamic>? cycle}) onCycleSaved;
+  final Future<bool> Function({Map<String, dynamic>? cycle}) onCycleEdited;
+  final Future<void> Function(dynamic cycleId) onCycleDeleted;
 
   const CalendarDetailSheet({
     super.key,
     required this.cycles,
     this.prediction,
     required this.onCycleSaved,
+    required this.onCycleEdited,
+    required this.onCycleDeleted,
   });
 
   @override
@@ -1372,6 +1530,14 @@ class _CalendarDetailSheetState extends State<CalendarDetailSheet> {
 
   void _showDayActions(DateTime day) {
     final isPredicted = _predictedDayKeys.contains(_dateKey(day));
+    final isLogged = _loggedDayKeys.contains(_dateKey(day));
+    
+    // Find cycle that contains this date
+    Map<String, dynamic>? relatedCycle;
+    if (isLogged) {
+      relatedCycle = _findCycleAtDate(day);
+    }
+
     showModalBottomSheet(
       context: context,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
@@ -1390,47 +1556,96 @@ class _CalendarDetailSheetState extends State<CalendarDetailSheet> {
                     ),
               ),
               const SizedBox(height: 12),
-              Text(
-                'Update this calendar entry to help the model learn.',
-                style: Theme.of(context)
-                    .textTheme
-                    .bodyMedium
-                    ?.copyWith(color: HerCyclePalette.magenta),
-              ),
-              const SizedBox(height: 16),
-              ElevatedButton(
-                onPressed: () async {
-                  Navigator.pop(sheetContext);
-                  await _logPeriodStart(day);
-                },
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: HerCyclePalette.magenta,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(16),
-                  ),
+              if (isLogged && relatedCycle != null) ...[
+                Text(
+                  'Edit this cycle to update dates or lengths.',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: HerCyclePalette.magenta),
                 ),
-                child: const Padding(
-                  padding: EdgeInsets.symmetric(vertical: 12),
-                  child: Text('Log period start here'),
-                ),
-              ),
-              const SizedBox(height: 12),
-              if (isPredicted)
-                OutlinedButton(
-                  onPressed: () {
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () async {
                     Navigator.pop(sheetContext);
-                    _adjustPredictedStart(day);
+                    await widget.onCycleEdited(cycle: relatedCycle);
                   },
-                  style: OutlinedButton.styleFrom(
-                    side:
-                        BorderSide(color: HerCyclePalette.deep.withOpacity(0.6)),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: HerCyclePalette.magenta,
                     shape: RoundedRectangleBorder(
                       borderRadius: BorderRadius.circular(16),
                     ),
                   ),
                   child: const Padding(
                     padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Text('Mark as corrected prediction'),
+                    child: Text('Edit cycle details'),
+                  ),
+                ),
+                const SizedBox(height: 12),
+                OutlinedButton(
+                  onPressed: () async {
+                    Navigator.pop(sheetContext);
+                    await widget.onCycleDeleted(relatedCycle!['id']);
+                  },
+                  style: OutlinedButton.styleFrom(
+                    side: const BorderSide(color: Colors.red),
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Text('Delete this cycle', style: TextStyle(color: Colors.red)),
+                  ),
+                ),
+              ] else ...[
+                Text(
+                  'Add a new cycle or update this calendar entry.',
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodyMedium
+                      ?.copyWith(color: HerCyclePalette.magenta),
+                ),
+                const SizedBox(height: 16),
+                ElevatedButton(
+                  onPressed: () async {
+                    Navigator.pop(sheetContext);
+                    // Pass a cycle object with just the start date
+                    final newCycle = {
+                      'start_date': day.toIso8601String().split('T')[0],
+                    };
+                    await widget.onCycleSaved(cycle: newCycle);
+                  },
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: HerCyclePalette.magenta,
+                    shape: RoundedRectangleBorder(
+                      borderRadius: BorderRadius.circular(16),
+                    ),
+                  ),
+                  child: const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 12),
+                    child: Text('Add new cycle'),
+                  ),
+                ),
+              ],
+              if (isPredicted)
+                Padding(
+                  padding: const EdgeInsets.only(top: 12),
+                  child: OutlinedButton(
+                    onPressed: () {
+                      Navigator.pop(sheetContext);
+                      _adjustPredictedStart(day);
+                    },
+                    style: OutlinedButton.styleFrom(
+                      side: BorderSide(color: HerCyclePalette.deep.withOpacity(0.6)),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: const Padding(
+                      padding: EdgeInsets.symmetric(vertical: 12),
+                      child: Text('Mark as corrected prediction'),
+                    ),
                   ),
                 ),
             ],
@@ -1438,6 +1653,23 @@ class _CalendarDetailSheetState extends State<CalendarDetailSheet> {
         );
       },
     );
+  }
+
+  Map<String, dynamic>? _findCycleAtDate(DateTime day) {
+    final String dayKey = _dateKey(day);
+    for (final cycle in widget.cycles) {
+      final start = _parseDate(cycle['start_date']);
+      final length = _safeParseInt(cycle['period_length'], fallback: 0);
+      if (start != null && length > 0) {
+        for (var i = 0; i < length; i++) {
+          final cycleDay = start.add(Duration(days: i));
+          if (_dateKey(cycleDay) == dayKey) {
+            return cycle;
+          }
+        }
+      }
+    }
+    return null;
   }
 
   Future<void> _logPeriodStart(DateTime day) async {

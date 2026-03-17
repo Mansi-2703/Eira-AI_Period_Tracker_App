@@ -1,0 +1,54 @@
+# Backend-specific ignore rules
+
+# Environment and credentials
+.env
+.env.local
+.env.*.local
+settings.local.py
+config/settings.local.py
+
+# Database files
+db.sqlite3
+*.db
+*.sqlite
+*.sqlite3
+
+# Virtual environment
+.venv/
+venv/
+ENV/
+env/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.egg-info/
+.eggs/
+*.egg
+build/
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Media and static files (if dynamically generated)
+media/
+staticfiles/
+
+# Logs
+*.log
+
+# Django
+.coverage
+htmlcov/
+.pytest_cache/
+instance/
