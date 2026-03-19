@@ -23,4 +23,5 @@ urlpatterns = [
     path('api/cycles/', include('cycles.urls')),
     path('api/predict/', include('predictions.urls')),
     path("api/quiz/", include("quiz.urls")),
+    path('api/daily-logs/', include('daily_logs.urls')),
 ]

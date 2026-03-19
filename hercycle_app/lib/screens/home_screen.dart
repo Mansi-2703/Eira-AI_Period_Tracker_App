@@ -8,6 +8,7 @@ import '../widgets/prediction_card.dart';
 import '../widgets/calendar_preview.dart';
 import '../widgets/prediction_charts.dart';
 import '../widgets/disorders_widget.dart';
+import '../widgets/menstrual_cycle_chart_card.dart';
 import 'profile_screen.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -25,6 +26,8 @@ class _HomeScreenState extends State<HomeScreen> {
   bool quizCompleted = false;
   Map<String, dynamic>? quizData;
   String? _cachedUsername;
+  List<DailyLog> dailyLogs = [];
+  bool logsLoading = true;
 
   @override
   void initState() {
@@ -32,6 +35,7 @@ class _HomeScreenState extends State<HomeScreen> {
     loadPrediction();
     loadCycles();
     loadQuizStatus();
+    loadDailyLogs();
     _loadCachedUserInfo();
   }
 
@@ -62,12 +66,75 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  Future<void> loadDailyLogs() async {
+    try {
+      final rawLogs = await ApiService.fetchDailyLogs(limit: 90);
+      if (!mounted) return;
+
+      final logs = <DailyLog>[];
+      for (final log in rawLogs) {
+        if (log is Map<String, dynamic>) {
+          final date = DateTime.tryParse(log['date']?.toString() ?? '');
+          if (date == null) continue;
+
+          final flowStr = log['flow']?.toString().toLowerCase() ?? 'none';
+          final flow = FlowIntensity.values.firstWhere(
+            (e) => e.name == flowStr,
+            orElse: () => FlowIntensity.none,
+          );
+
+          final moodStr = log['mood']?.toString().toLowerCase();
+          final mood = moodStr != null
+              ? MoodType.values.firstWhere(
+                  (e) => e.name == moodStr,
+                  orElse: () => MoodType.calm,
+                )
+              : null;
+
+          final energyStr = log['energy']?.toString().toLowerCase();
+          final energy = energyStr != null
+              ? EnergyLevel.values.firstWhere(
+                  (e) => e.name == energyStr,
+                  orElse: () => EnergyLevel.medium,
+                )
+              : null;
+
+          final symptoms = <String>[];
+          if (log['symptoms'] is List) {
+            for (final s in log['symptoms']) {
+              symptoms.add(s.toString());
+            }
+          }
+
+          logs.add(DailyLog(
+            date: date,
+            flow: flow,
+            mood: mood,
+            energy: energy,
+            symptoms: symptoms,
+          ));
+        }
+      }
+
+      setState(() {
+        dailyLogs = logs;
+        logsLoading = false;
+      });
+    } catch (e) {
+      if (!mounted) return;
+      setState(() {
+        logsLoading = false;
+      });
+    }
+  }
+
   Future<void> _openQuiz() async {
     final result = await Navigator.pushNamed(context, '/quiz');
     if (result == true) {
       await loadQuizStatus();
       await loadPrediction();
       await loadCycles();
+      await loadDailyLogs();
     }
   }
 
@@ -82,11 +149,7 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _openProfileScreen() async {
     await Navigator.push(
       context,
-      MaterialPageRoute(
-        builder: (_) => ProfileScreen(
-          quizData: quizData,
-        ),
-      ),
+      MaterialPageRoute(builder: (_) => ProfileScreen(quizData: quizData)),
     );
     if (!mounted) return;
     _loadCachedUserInfo();
@@ -221,15 +284,16 @@ class _HomeScreenState extends State<HomeScreen> {
     final String phaseKey = phase.toLowerCase();
     final List<String> phaseTips = tips[phaseKey] ?? tips['tracking']!;
 
-      showModalBottomSheet(
+    showModalBottomSheet(
       context: context,
       isScrollControlled: true,
       shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(28)),
       builder: (sheetContext) {
         final List<_RecentCycleSummary> recentSummaries =
             _recentCycleSummaries().take(3).toList();
-        final _RecentCycleSummary? latestCycle =
-            recentSummaries.isNotEmpty ? recentSummaries.first : null;
+        final _RecentCycleSummary? latestCycle = recentSummaries.isNotEmpty
+            ? recentSummaries.first
+            : null;
         final List<_PhaseSegment> phaseSegments = _phaseSegmentsForCycle(
           cycleLength: cycleLength,
           periodDays: latestCycle?.periodLength.toDouble() ?? 5.0,
@@ -278,7 +342,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               height: 4,
                               margin: const EdgeInsets.only(bottom: 18),
                               decoration: BoxDecoration(
-                                color: HerCyclePalette.magenta.withOpacity(0.45),
+                                color: HerCyclePalette.magenta.withOpacity(
+                                  0.45,
+                                ),
                                 borderRadius: BorderRadius.circular(2),
                               ),
                             ),
@@ -288,9 +354,7 @@ class _HomeScreenState extends State<HomeScreen> {
                             children: [
                               Text(
                                 'Phase insights',
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .headlineSmall
+                                style: Theme.of(context).textTheme.headlineSmall
                                     ?.copyWith(
                                       fontWeight: FontWeight.bold,
                                       color: HerCyclePalette.deep,
@@ -306,9 +370,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(height: 6),
                           Text(
                             'You are on day $cycleDay of $cycleLength, currently in the $phase phase.',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
+                            style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(color: HerCyclePalette.magenta),
                           ),
                           const SizedBox(height: 18),
@@ -334,9 +396,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(height: 24),
                           Text(
                             'What this means',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
+                            style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(
                                   fontWeight: FontWeight.w600,
                                   color: HerCyclePalette.deep,
@@ -345,17 +405,13 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(height: 8),
                           Text(
                             'Day $cycleDay of your cycle marks $phase. The chart above shows how the phases stack up today—$phase occupies about ${(progress * 100).round()}% of the cycle window.',
-                            style: Theme.of(context)
-                                .textTheme
-                                .bodyMedium
+                            style: Theme.of(context).textTheme.bodyMedium
                                 ?.copyWith(color: HerCyclePalette.magenta),
                           ),
                           const SizedBox(height: 24),
                           Text(
                             'Recent cycle data',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
+                            style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(
                                   fontWeight: FontWeight.w600,
                                   color: HerCyclePalette.deep,
@@ -366,9 +422,7 @@ class _HomeScreenState extends State<HomeScreen> {
                           const SizedBox(height: 24),
                           Text(
                             'Suggestions',
-                            style: Theme.of(context)
-                                .textTheme
-                                .titleMedium
+                            style: Theme.of(context).textTheme.titleMedium
                                 ?.copyWith(
                                   fontWeight: FontWeight.w600,
                                   color: HerCyclePalette.deep,
@@ -392,7 +446,9 @@ class _HomeScreenState extends State<HomeScreen> {
                                       style: Theme.of(context)
                                           .textTheme
                                           .bodyMedium
-                                          ?.copyWith(color: HerCyclePalette.magenta),
+                                          ?.copyWith(
+                                            color: HerCyclePalette.magenta,
+                                          ),
                                     ),
                                   ),
                                 ],
@@ -411,7 +467,9 @@ class _HomeScreenState extends State<HomeScreen> {
                               ),
                               child: const Padding(
                                 padding: EdgeInsets.symmetric(
-                                    horizontal: 28, vertical: 12),
+                                  horizontal: 28,
+                                  vertical: 12,
+                                ),
                                 child: Text('Got it'),
                               ),
                             ),
@@ -442,10 +500,7 @@ class _HomeScreenState extends State<HomeScreen> {
         children: [
           Text(
             label,
-            style: const TextStyle(
-              fontSize: 10,
-              color: HerCyclePalette.deep,
-            ),
+            style: const TextStyle(fontSize: 10, color: HerCyclePalette.deep),
           ),
           const SizedBox(height: 2),
           Text(
@@ -473,9 +528,9 @@ class _HomeScreenState extends State<HomeScreen> {
         Text(
           'Phase distribution',
           style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.w600,
-                color: HerCyclePalette.magenta,
-              ),
+            fontWeight: FontWeight.w600,
+            color: HerCyclePalette.magenta,
+          ),
         ),
         const SizedBox(height: 12),
         ...segments.map((segment) {
@@ -493,17 +548,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     Text(
                       segment.label,
                       style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight:
-                                isActive ? FontWeight.w600 : FontWeight.w500,
-                            color: HerCyclePalette.magenta,
-                          ),
+                        fontWeight: isActive
+                            ? FontWeight.w600
+                            : FontWeight.w500,
+                        color: HerCyclePalette.magenta,
+                      ),
                     ),
                     Text(
                       '${segment.days.round()}d',
-                      style:
-                          Theme.of(context).textTheme.bodySmall?.copyWith(
-                                color: HerCyclePalette.magenta,
-                              ),
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                        color: HerCyclePalette.magenta,
+                      ),
                     ),
                   ],
                 ),
@@ -534,15 +589,15 @@ class _HomeScreenState extends State<HomeScreen> {
     if (summaries.isEmpty) {
       return Text(
         'Log at least one cycle to see your recent phase data.',
-        style: Theme.of(context)
-            .textTheme
-            .bodyMedium
-            ?.copyWith(color: HerCyclePalette.magenta),
+        style: Theme.of(
+          context,
+        ).textTheme.bodyMedium?.copyWith(color: HerCyclePalette.magenta),
       );
     }
 
-    final int maxCycle =
-        summaries.map((entry) => entry.cycleLength).fold(28, max);
+    final int maxCycle = summaries
+        .map((entry) => entry.cycleLength)
+        .fold(28, max);
 
     return Wrap(
       spacing: 12,
@@ -574,17 +629,16 @@ class _HomeScreenState extends State<HomeScreen> {
                 Text(
                   summary.label,
                   style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        fontWeight: FontWeight.w600,
-                        color: HerCyclePalette.magenta,
-                      ),
+                    fontWeight: FontWeight.w600,
+                    color: HerCyclePalette.magenta,
+                  ),
                 ),
                 const SizedBox(height: 10),
                 Text(
                   'Cycle ${summary.cycleLength}d',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: HerCyclePalette.magenta),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: HerCyclePalette.magenta,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 ClipRRect(
@@ -593,17 +647,17 @@ class _HomeScreenState extends State<HomeScreen> {
                     value: cycleRatio.clamp(0.0, 1.0),
                     minHeight: 6,
                     backgroundColor: Colors.white.withOpacity(0.16),
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(HerCyclePalette.deep),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      HerCyclePalette.deep,
+                    ),
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
                   'Flow ${summary.periodLength}d',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodySmall
-                      ?.copyWith(color: HerCyclePalette.magenta),
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: HerCyclePalette.magenta,
+                  ),
                 ),
                 const SizedBox(height: 6),
                 ClipRRect(
@@ -612,8 +666,9 @@ class _HomeScreenState extends State<HomeScreen> {
                     value: flowRatio.clamp(0.0, 1.0),
                     minHeight: 6,
                     backgroundColor: Colors.white.withOpacity(0.16),
-                    valueColor:
-                        AlwaysStoppedAnimation<Color>(HerCyclePalette.magenta),
+                    valueColor: AlwaysStoppedAnimation<Color>(
+                      HerCyclePalette.magenta,
+                    ),
                   ),
                 ),
               ],
@@ -629,8 +684,10 @@ class _HomeScreenState extends State<HomeScreen> {
     required double periodDays,
   }) {
     const double ovulationDays = 3.0;
-    final double boundedPeriod =
-        periodDays.clamp(2.0, cycleLength.toDouble() - 3.0);
+    final double boundedPeriod = periodDays.clamp(
+      2.0,
+      cycleLength.toDouble() - 3.0,
+    );
     final double remaining = max(
       0.0,
       cycleLength.toDouble() - boundedPeriod - ovulationDays,
@@ -644,8 +701,10 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     if (remaining <= 0) {
       lutealDays = max(3.0, cycleLength * 0.35);
-      follicularDays =
-          max(3.0, cycleLength.toDouble() - boundedPeriod - ovulationDays - lutealDays);
+      follicularDays = max(
+        3.0,
+        cycleLength.toDouble() - boundedPeriod - ovulationDays - lutealDays,
+      );
     }
     final double total =
         boundedPeriod + follicularDays + ovulationDays + lutealDays;
@@ -680,18 +739,28 @@ class _HomeScreenState extends State<HomeScreen> {
     for (final cycle in cycles) {
       final DateTime? parsed = _parseCycleDate(cycle['start_date']);
       final String label = parsed != null ? formatter.format(parsed) : 'Cycle';
-      final int cycleLength = _safeParseInt(cycle['cycle_length'], fallback: 28);
-      final int periodLength = _safeParseInt(cycle['period_length'], fallback: 5);
-      summaries.add(_RecentCycleSummary(
-        label: label,
-        startDate: parsed,
-        cycleLength: cycleLength,
-        periodLength: periodLength,
-      ));
+      final int cycleLength = _safeParseInt(
+        cycle['cycle_length'],
+        fallback: 28,
+      );
+      final int periodLength = _safeParseInt(
+        cycle['period_length'],
+        fallback: 5,
+      );
+      summaries.add(
+        _RecentCycleSummary(
+          label: label,
+          startDate: parsed,
+          cycleLength: cycleLength,
+          periodLength: periodLength,
+        ),
+      );
     }
     summaries.sort((a, b) {
-      final DateTime aDate = a.startDate ?? DateTime.fromMillisecondsSinceEpoch(0);
-      final DateTime bDate = b.startDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final DateTime aDate =
+          a.startDate ?? DateTime.fromMillisecondsSinceEpoch(0);
+      final DateTime bDate =
+          b.startDate ?? DateTime.fromMillisecondsSinceEpoch(0);
       return bDate.compareTo(aDate);
     });
     return summaries;
@@ -734,7 +803,9 @@ class _HomeScreenState extends State<HomeScreen> {
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete cycle'),
-        content: const Text('Are you sure you want to delete this cycle? This action cannot be undone.'),
+        content: const Text(
+          'Are you sure you want to delete this cycle? This action cannot be undone.',
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx, false),
@@ -784,10 +855,10 @@ class _HomeScreenState extends State<HomeScreen> {
         // Reload data
         await loadCycles();
         await loadPrediction();
-        
+
         // Close calendar sheet
         Navigator.pop(context);
-        
+
         // Show success
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(
@@ -820,10 +891,7 @@ class _HomeScreenState extends State<HomeScreen> {
     } catch (e) {
       if (!mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text('Error: $e'),
-          backgroundColor: Colors.red,
-        ),
+        SnackBar(content: Text('Error: $e'), backgroundColor: Colors.red),
       );
     }
   }
@@ -917,138 +985,143 @@ class _HomeScreenState extends State<HomeScreen> {
                   ),
                   ElevatedButton(
                     onPressed: () async {
-                            if (!formKey.currentState!.validate()) {
-                              return;
-                            }
-                            final cycleLength = int.tryParse(
-                              cycleController.text,
-                            );
-                            final periodLength = int.tryParse(
-                              periodController.text,
-                            );
-                            if (cycleLength == null || periodLength == null) {
-                              ScaffoldMessenger.of(dialogContext).showSnackBar(
-                                const SnackBar(
-                                  content: Text('Please enter valid numbers'),
-                                ),
-                              );
-                              return;
-                            }
-                            if (cycleLength < 20 || cycleLength > 45) {
-                              ScaffoldMessenger.of(dialogContext).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Cycle length should be between 20–45 days',
+                      if (!formKey.currentState!.validate()) {
+                        return;
+                      }
+                      final cycleLength = int.tryParse(cycleController.text);
+                      final periodLength = int.tryParse(periodController.text);
+                      if (cycleLength == null || periodLength == null) {
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          const SnackBar(
+                            content: Text('Please enter valid numbers'),
+                          ),
+                        );
+                        return;
+                      }
+                      if (cycleLength < 20 || cycleLength > 45) {
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Cycle length should be between 20–45 days',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                      if (periodLength < 2 || periodLength > 10) {
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Period length should be between 2–10 days',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+                      if (periodLength > cycleLength) {
+                        ScaffoldMessenger.of(dialogContext).showSnackBar(
+                          const SnackBar(
+                            content: Text(
+                              'Period length cannot exceed cycle length',
+                            ),
+                          ),
+                        );
+                        return;
+                      }
+
+                      // Close dialog immediately
+                      Navigator.pop(dialogContext, true);
+
+                      // Show loading feedback
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        const SnackBar(
+                          content: Row(
+                            children: [
+                              SizedBox(
+                                width: 16,
+                                height: 16,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2,
+                                  valueColor: AlwaysStoppedAnimation<Color>(
+                                    Colors.white,
                                   ),
                                 ),
-                              );
-                              return;
-                            }
-                            if (periodLength < 2 || periodLength > 10) {
-                              ScaffoldMessenger.of(dialogContext).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Period length should be between 2–10 days',
-                                  ),
-                                ),
-                              );
-                              return;
-                            }
-                            if (periodLength > cycleLength) {
-                              ScaffoldMessenger.of(dialogContext).showSnackBar(
-                                const SnackBar(
-                                  content: Text(
-                                    'Period length cannot exceed cycle length',
-                                  ),
-                                ),
-                              );
-                              return;
-                            }
-                            
-                            // Close dialog immediately
-                            Navigator.pop(dialogContext, true);
-                            
-                            // Show loading feedback
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content: Row(
-                                  children: [
-                                    SizedBox(
-                                      width: 16,
-                                      height: 16,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                        valueColor: AlwaysStoppedAnimation<Color>(Colors.white),
-                                      ),
-                                    ),
-                                    SizedBox(width: 12),
-                                    Text('Saving...'),
-                                  ],
-                                ),
-                                duration: Duration(seconds: 5),
                               ),
+                              SizedBox(width: 12),
+                              Text('Saving...'),
+                            ],
+                          ),
+                          duration: Duration(seconds: 5),
+                        ),
+                      );
+
+                      final payloadDate = DateTime(
+                        selectedDate.year,
+                        selectedDate.month,
+                        selectedDate.day,
+                      ).toIso8601String().split('T')[0];
+
+                      final isNewCycle = entry == null || entry['id'] == null;
+                      final success = isNewCycle
+                          ? await ApiService.saveCycle(
+                              startDate: payloadDate,
+                              cycleLength: cycleLength,
+                              periodLength: periodLength,
+                            )
+                          : await ApiService.updateCycle(
+                              id: entry['id'],
+                              startDate: payloadDate,
+                              cycleLength: cycleLength,
+                              periodLength: periodLength,
                             );
-                            
-                            final payloadDate = DateTime(
-                              selectedDate.year,
-                              selectedDate.month,
-                              selectedDate.day,
-                            ).toIso8601String().split('T')[0];
-                            
-                            final isNewCycle = entry == null || entry['id'] == null;
-                            final success = isNewCycle
-                                ? await ApiService.saveCycle(
-                                    startDate: payloadDate,
-                                    cycleLength: cycleLength,
-                                    periodLength: periodLength,
-                                  )
-                                : await ApiService.updateCycle(
-                                    id: entry['id'],
-                                    startDate: payloadDate,
-                                    cycleLength: cycleLength,
-                                    periodLength: periodLength,
-                                  );
-                            
-                            if (!mounted) return;
-                            
-                            // Remove loading snackbar and show result
-                            ScaffoldMessenger.of(context).clearSnackBars();
-                            
-                            if (success) {
-                              // Don't close sheet here - let the callback handle it
-                              // Refresh data
-                              await loadCycles();
-                              await loadPrediction();
-                              
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                SnackBar(
-                                  content: Row(
-                                    children: [
-                                      const Icon(Icons.check_circle, color: Colors.white),
-                                      const SizedBox(width: 12),
-                                      Text(isNewCycle ? 'Cycle added successfully' : 'Period updated successfully'),
-                                    ],
-                                  ),
-                                  duration: const Duration(seconds: 2),
-                                  backgroundColor: Colors.green,
+
+                      if (!mounted) return;
+
+                      // Remove loading snackbar and show result
+                      ScaffoldMessenger.of(context).clearSnackBars();
+
+                      if (success) {
+                        // Don't close sheet here - let the callback handle it
+                        // Refresh data
+                        await loadCycles();
+                        await loadPrediction();
+
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          SnackBar(
+                            content: Row(
+                              children: [
+                                const Icon(
+                                  Icons.check_circle,
+                                  color: Colors.white,
                                 ),
-                              );
-                            } else {
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(
-                                  content: Row(
-                                    children: [
-                                      Icon(Icons.error, color: Colors.white),
-                                      SizedBox(width: 12),
-                                      Text('Failed to save cycle'),
-                                    ],
-                                  ),
-                                  duration: Duration(seconds: 3),
-                                  backgroundColor: Colors.red,
+                                const SizedBox(width: 12),
+                                Text(
+                                  isNewCycle
+                                      ? 'Cycle added successfully'
+                                      : 'Period updated successfully',
                                 ),
-                              );
-                            }
-                          },
+                              ],
+                            ),
+                            duration: const Duration(seconds: 2),
+                            backgroundColor: Colors.green,
+                          ),
+                        );
+                      } else {
+                        ScaffoldMessenger.of(context).showSnackBar(
+                          const SnackBar(
+                            content: Row(
+                              children: [
+                                Icon(Icons.error, color: Colors.white),
+                                SizedBox(width: 12),
+                                Text('Failed to save cycle'),
+                              ],
+                            ),
+                            duration: Duration(seconds: 3),
+                            backgroundColor: Colors.red,
+                          ),
+                        );
+                      }
+                    },
                     child: SizedBox(
                       height: 24,
                       child: Text(
@@ -1210,6 +1283,8 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 16),
             ],
             if (cycles.isNotEmpty) ...[
+              MenstrualCycleChartCard(logs: dailyLogs),
+              const SizedBox(height: 16),
               PredictionCharts(cycles: cycles, prediction: prediction),
               const SizedBox(height: 16),
             ],
@@ -1252,25 +1327,41 @@ class _CalendarDetailSheetState extends State<CalendarDetailSheet> {
     super.initState();
     _loggedDayKeys = _collectLoggedDays();
     _predictedStart = _parseDate(widget.prediction?['predicted_next_period']);
-    _predictedPeriodLength =
-        _safeParseInt(widget.prediction?['period_length'], fallback: 5);
+    _predictedPeriodLength = _safeParseInt(
+      widget.prediction?['period_length'],
+      fallback: 5,
+    );
     _predictedDayKeys = {};
     _updatePredictedRange();
   }
 
   void _goToPreviousMonth() {
     setState(() {
-      _displayedMonth = DateTime(_displayedMonth.year, _displayedMonth.month - 1);
+      _displayedMonth = DateTime(
+        _displayedMonth.year,
+        _displayedMonth.month - 1,
+      );
     });
   }
 
   void _goToNextMonth() {
     setState(() {
-      _displayedMonth = DateTime(_displayedMonth.year, _displayedMonth.month + 1);
+      _displayedMonth = DateTime(
+        _displayedMonth.year,
+        _displayedMonth.month + 1,
+      );
     });
   }
 
-  List<String> get _weekLabels => const ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+  List<String> get _weekLabels => const [
+    'Sun',
+    'Mon',
+    'Tue',
+    'Wed',
+    'Thu',
+    'Fri',
+    'Sat',
+  ];
 
   Set<String> _collectLoggedDays() {
     final dates = <String>{};
@@ -1321,14 +1412,18 @@ class _CalendarDetailSheetState extends State<CalendarDetailSheet> {
   void _updatePredictedRange() {
     _predictedDayKeys.clear();
     if (_predictedStart == null) return;
-    _predictedDayKeys.addAll(_buildRangeKeys(_predictedStart!, _predictedPeriodLength));
+    _predictedDayKeys.addAll(
+      _buildRangeKeys(_predictedStart!, _predictedPeriodLength),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    final String phase = widget.prediction?['current_phase']?.toString() ?? 'Tracking';
+    final String phase =
+        widget.prediction?['current_phase']?.toString() ?? 'Tracking';
     final double confidence =
-        (double.tryParse(widget.prediction?['confidence']?.toString() ?? '') ?? 0.0)
+        (double.tryParse(widget.prediction?['confidence']?.toString() ?? '') ??
+                0.0)
             .clamp(0.0, 1.0);
     final DateTime? today = DateTime.now();
     final height = MediaQuery.of(context).size.height * 0.75;
@@ -1351,9 +1446,7 @@ class _CalendarDetailSheetState extends State<CalendarDetailSheet> {
                     children: [
                       Text(
                         'Period Calendar',
-                        style: Theme.of(context)
-                            .textTheme
-                            .headlineSmall
+                        style: Theme.of(context).textTheme.headlineSmall
                             ?.copyWith(
                               fontWeight: FontWeight.bold,
                               color: HerCyclePalette.deep,
@@ -1379,12 +1472,18 @@ class _CalendarDetailSheetState extends State<CalendarDetailSheet> {
                     runSpacing: 10,
                     children: [
                       _infoBubble('Phase', phase, background: Colors.white),
-                      _infoBubble('Cycle day', widget.prediction?['cycle_day']?.toString() ?? '—',
-                          background: HerCyclePalette.magenta.withOpacity(0.12),
-                          textColor: HerCyclePalette.magenta),
-                      _infoBubble('Confidence', '${(confidence * 100).round()}%',
-                          background: HerCyclePalette.magenta.withOpacity(0.15),
-                          textColor: HerCyclePalette.magenta),
+                      _infoBubble(
+                        'Cycle day',
+                        widget.prediction?['cycle_day']?.toString() ?? '—',
+                        background: HerCyclePalette.magenta.withOpacity(0.12),
+                        textColor: HerCyclePalette.magenta,
+                      ),
+                      _infoBubble(
+                        'Confidence',
+                        '${(confidence * 100).round()}%',
+                        background: HerCyclePalette.magenta.withOpacity(0.15),
+                        textColor: HerCyclePalette.magenta,
+                      ),
                     ],
                   ),
                   const SizedBox(height: 16),
@@ -1457,7 +1556,8 @@ class _CalendarDetailSheetState extends State<CalendarDetailSheet> {
             childAspectRatio: 1.1,
           ),
           itemCount: days.length,
-          itemBuilder: (context, index) => _buildCalendarDay(days[index], today),
+          itemBuilder: (context, index) =>
+              _buildCalendarDay(days[index], today),
         ),
       ],
     );
@@ -1471,13 +1571,13 @@ class _CalendarDetailSheetState extends State<CalendarDetailSheet> {
     final bgColor = isPredicted
         ? HerCyclePalette.magenta.withOpacity(0.9)
         : isLogged
-            ? HerCyclePalette.blush.withOpacity(0.4)
-            : Colors.transparent;
+        ? HerCyclePalette.blush.withOpacity(0.4)
+        : Colors.transparent;
     final textColor = isPredicted
         ? Colors.white
         : isCurrentMonth
-            ? HerCyclePalette.deep
-            : HerCyclePalette.deep.withOpacity(0.4);
+        ? HerCyclePalette.deep
+        : HerCyclePalette.deep.withOpacity(0.4);
     return GestureDetector(
       onTap: () => _showDayActions(day),
       child: Padding(
@@ -1531,7 +1631,7 @@ class _CalendarDetailSheetState extends State<CalendarDetailSheet> {
   void _showDayActions(DateTime day) {
     final isPredicted = _predictedDayKeys.contains(_dateKey(day));
     final isLogged = _loggedDayKeys.contains(_dateKey(day));
-    
+
     // Find cycle that contains this date
     Map<String, dynamic>? relatedCycle;
     if (isLogged) {
@@ -1551,18 +1651,17 @@ class _CalendarDetailSheetState extends State<CalendarDetailSheet> {
               Text(
                 DateFormat.yMMMMd().format(day),
                 style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: HerCyclePalette.deep,
-                    ),
+                  fontWeight: FontWeight.bold,
+                  color: HerCyclePalette.deep,
+                ),
               ),
               const SizedBox(height: 12),
               if (isLogged && relatedCycle != null) ...[
                 Text(
                   'Edit this cycle to update dates or lengths.',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(color: HerCyclePalette.magenta),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: HerCyclePalette.magenta,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
@@ -1595,16 +1694,18 @@ class _CalendarDetailSheetState extends State<CalendarDetailSheet> {
                   ),
                   child: const Padding(
                     padding: EdgeInsets.symmetric(vertical: 12),
-                    child: Text('Delete this cycle', style: TextStyle(color: Colors.red)),
+                    child: Text(
+                      'Delete this cycle',
+                      style: TextStyle(color: Colors.red),
+                    ),
                   ),
                 ),
               ] else ...[
                 Text(
                   'Add a new cycle or update this calendar entry.',
-                  style: Theme.of(context)
-                      .textTheme
-                      .bodyMedium
-                      ?.copyWith(color: HerCyclePalette.magenta),
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: HerCyclePalette.magenta,
+                  ),
                 ),
                 const SizedBox(height: 16),
                 ElevatedButton(
@@ -1637,7 +1738,9 @@ class _CalendarDetailSheetState extends State<CalendarDetailSheet> {
                       _adjustPredictedStart(day);
                     },
                     style: OutlinedButton.styleFrom(
-                      side: BorderSide(color: HerCyclePalette.deep.withOpacity(0.6)),
+                      side: BorderSide(
+                        color: HerCyclePalette.deep.withOpacity(0.6),
+                      ),
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
                       ),
@@ -1673,8 +1776,14 @@ class _CalendarDetailSheetState extends State<CalendarDetailSheet> {
   }
 
   Future<void> _logPeriodStart(DateTime day) async {
-    final defaultCycle = _safeParseInt(widget.prediction?['cycle_length'], fallback: 28);
-    final defaultPeriod = _safeParseInt(widget.prediction?['period_length'], fallback: 5);
+    final defaultCycle = _safeParseInt(
+      widget.prediction?['cycle_length'],
+      fallback: 28,
+    );
+    final defaultPeriod = _safeParseInt(
+      widget.prediction?['period_length'],
+      fallback: 5,
+    );
     await widget.onCycleSaved(
       cycle: {
         'start_date': day.toIso8601String(),
@@ -1691,7 +1800,9 @@ class _CalendarDetailSheetState extends State<CalendarDetailSheet> {
     });
     ScaffoldMessenger.of(context).showSnackBar(
       SnackBar(
-        content: Text('Prediction adjusted to ${DateFormat.yMMMd().format(day)}'),
+        content: Text(
+          'Prediction adjusted to ${DateFormat.yMMMd().format(day)}',
+        ),
         backgroundColor: HerCyclePalette.magenta,
       ),
     );
@@ -1703,7 +1814,6 @@ class _CalendarDetailSheetState extends State<CalendarDetailSheet> {
       children: [
         _legendItem('Predicted period', HerCyclePalette.magenta),
         _legendItem('Logged flow', HerCyclePalette.blush),
-
       ],
     );
   }
@@ -1748,13 +1858,7 @@ class _CalendarDetailSheetState extends State<CalendarDetailSheet> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Text(
-            label,
-            style: TextStyle(
-              fontSize: 10,
-              color: textColor,
-            ),
-          ),
+          Text(label, style: TextStyle(fontSize: 10, color: textColor)),
           const SizedBox(height: 2),
           Text(
             value,
@@ -1768,7 +1872,6 @@ class _CalendarDetailSheetState extends State<CalendarDetailSheet> {
       ),
     );
   }
-
 }
 
 class _PhaseSegment {

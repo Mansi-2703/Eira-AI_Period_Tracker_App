@@ -46,6 +46,7 @@ INSTALLED_APPS = [
     'cycles',
     'predictions',
     'quiz',
+    'daily_logs',
 ]
 
 MIDDLEWARE = [
