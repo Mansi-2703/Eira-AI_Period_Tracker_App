@@ -146,6 +146,21 @@ class _HomeScreenState extends State<HomeScreen> {
     });
   }
 
+  int? _getCycleDayFromPrediction(Map<String, dynamic>? prediction) {
+    if (prediction == null) return null;
+
+    final cycleDayValue = prediction['cycle_day'];
+    if (cycleDayValue == null) return null;
+
+    // Handle both int and string types
+    if (cycleDayValue is int) {
+      return cycleDayValue;
+    } else if (cycleDayValue is String) {
+      return int.tryParse(cycleDayValue);
+    }
+    return null;
+  }
+
   Future<void> _openProfileScreen() async {
     await Navigator.push(
       context,
@@ -1285,9 +1300,7 @@ class _HomeScreenState extends State<HomeScreen> {
             if (cycles.isNotEmpty) ...[
               MenstrualCycleChartCard(
                 logs: dailyLogs,
-                overrideTodayDay: prediction != null
-                  ? int.tryParse(prediction!['cycle_day']?.toString() ?? '')
-                  : null,
+                overrideTodayDay: _getCycleDayFromPrediction(prediction),
               ),
               const SizedBox(height: 16),
               PredictionCharts(cycles: cycles, prediction: prediction),
