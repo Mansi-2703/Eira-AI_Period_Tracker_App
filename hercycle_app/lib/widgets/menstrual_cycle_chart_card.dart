@@ -303,10 +303,10 @@ class CycleChartPainter extends CustomPainter {
 
   CycleChartPainter(this.data);
 
-  static const double _leftPadding = 28;
-  static const double _rightPadding = 12;
-  static const double _topPadding = 20;
-  static const double _bottomPadding = 36;
+  static const double _leftPadding = 60;
+  static const double _rightPadding = 40;
+  static const double _topPadding = 40;
+  static const double _bottomPadding = 60;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -371,7 +371,7 @@ class CycleChartPainter extends CustomPainter {
           text: phaseDisplayName,
           style: TextStyle(
             color: phaseDarkColors[phaseName],
-            fontSize: 9,
+            fontSize: 13,
             fontWeight: FontWeight.bold,
           ),
         ),
@@ -451,7 +451,7 @@ class CycleChartPainter extends CustomPainter {
       canvas,
       data.hormonePoints['oestradiol']!,
       Color(0xFFE870C0),
-      2.2,
+      3.5,
       chartWidth,
       chartHeight,
       fill: true,
@@ -460,7 +460,7 @@ class CycleChartPainter extends CustomPainter {
       canvas,
       data.hormonePoints['progesterone']!,
       Color(0xFF7058D8),
-      2.2,
+      3.5,
       chartWidth,
       chartHeight,
       fill: true,
@@ -469,7 +469,7 @@ class CycleChartPainter extends CustomPainter {
       canvas,
       data.hormonePoints['lh']!,
       Color(0xFF58C870),
-      1.8,
+      2.8,
       chartWidth,
       chartHeight,
     );
@@ -477,7 +477,7 @@ class CycleChartPainter extends CustomPainter {
       canvas,
       data.hormonePoints['fsh']!,
       Color(0xFFF0A050),
-      1.8,
+      2.8,
       chartWidth,
       chartHeight,
     );
@@ -564,7 +564,7 @@ class CycleChartPainter extends CustomPainter {
         text: 'Day ${data.todayDay}',
         style: TextStyle(
           color: Colors.white,
-          fontSize: 8,
+          fontSize: 12,
           fontWeight: FontWeight.w500,
         ),
       ),
@@ -800,12 +800,21 @@ class MenstrualCycleChartCard extends StatelessWidget {
               SizedBox(height: 16),
               ClipRRect(
                 borderRadius: BorderRadius.circular(16),
-                child: SizedBox(
-                  width: double.infinity,
-                  height: 220,
-                  child: CustomPaint(
-                    painter: CycleChartPainter(data),
-                    size: Size.infinite,
+                child: Container(
+                  color: Colors.white.withOpacity(0.5),
+                  height: 380,
+                  child: InteractiveViewer(
+                    boundaryMargin: EdgeInsets.all(20),
+                    minScale: 0.8,
+                    maxScale: 3.0,
+                    child: SizedBox(
+                      width: 1200,
+                      height: 420,
+                      child: CustomPaint(
+                        painter: CycleChartPainter(data),
+                        size: Size(1200, 420),
+                      ),
+                    ),
                   ),
                 ),
               ),
