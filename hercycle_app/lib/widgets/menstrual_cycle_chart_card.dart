@@ -303,24 +303,35 @@ class CycleChartPainter extends CustomPainter {
 
   CycleChartPainter(this.data);
 
-  static const double _leftPadding = 60;
-  static const double _rightPadding = 40;
-  static const double _topPadding = 40;
-  static const double _bottomPadding = 60;
+  static const double _leftPadding = 40;
+  static const double _rightPadding = 20;
+  static const double _topPadding = 32;
+  static const double _bottomPadding = 44;
+  static const double _axisLabelWidth = 25;
 
   @override
   void paint(Canvas canvas, Size size) {
     final chartWidth = size.width - _leftPadding - _rightPadding;
     final chartHeight = size.height - _topPadding - _bottomPadding;
 
+    // Draw background
+    canvas.drawRect(
+      Rect.fromLTWH(0, 0, size.width, size.height),
+      Paint()..color = Colors.white,
+    );
+
+    // Draw phase section headers at top
+    _drawPhaseHeaders(canvas, size, chartWidth);
+
+    // Draw in order: backgrounds, then axes, then curves, then indicators
     _drawPhaseBands(canvas, size, chartWidth, chartHeight);
-    _drawGridlines(canvas, size, chartWidth, chartHeight);
     _drawAxisLabels(canvas, size, chartHeight);
+    _drawHorizontalGridlines(canvas, size, chartWidth, chartHeight);
+    _drawVerticalAxisLine(canvas, size, chartHeight);
     _drawHormoneCurves(canvas, size, chartWidth, chartHeight);
-    _drawTodayLine(canvas, size, chartWidth, chartHeight);
     _drawSymptomDots(canvas, size, chartWidth, chartHeight);
-    _drawXAxisLabels(canvas, size, chartWidth, chartHeight);
-    _drawPhaseDividers(canvas, size, chartHeight);
+    _drawTodayIndicator(canvas, size, chartWidth, chartHeight);
+    _drawDayMarkers(canvas, size, chartWidth, chartHeight);
   }
 
   double _dayToX(double day, double chartWidth) {
@@ -344,17 +355,10 @@ class CycleChartPainter extends CustomPainter {
       'luteal': Color(0xFFC8DCF8),
     };
 
-    final phaseDarkColors = {
-      'menstruation': Color(0xFFCC8EB0),
-      'follicular': Color(0xFF90C890),
-      'ovulation': Color(0xFFB8A8E8),
-      'luteal': Color(0xFF90B8E0),
-    };
-
     for (final entry in data.phases.entries) {
       final phaseName = entry.key;
       final range = entry.value;
-      final color = phaseColors[phaseName]!.withOpacity(0.18);
+      final color = phaseColors[phaseName]!.withOpacity(0.15);
 
       final startX = _dayToX(range.startDay.toDouble(), chartWidth);
       final endX = _dayToX(range.endDay.toDouble() + 1, chartWidth);
@@ -363,44 +367,118 @@ class CycleChartPainter extends CustomPainter {
         Rect.fromLTRB(startX, _topPadding, endX, _topPadding + chartHeight),
         Paint()..color = color,
       );
+    }
+  }
 
-      final phaseDisplayName =
-          phaseName[0].toUpperCase() + phaseName.substring(1);
+  void _drawPhaseHeaders(Canvas canvas, Size size, double chartWidth) {
+    final phaseColors = {
+      'menstruation': Color(0xFFFFCCE0),
+      'follicular': Color(0xFFC8F0C8),
+      'ovulation': Color(0xFFDDD0FF),
+      'luteal': Color(0xFFC8DCF8),
+    };
+
+    final phaseDarkColors = {
+      'menstruation': Color(0xFFCC8EB0),
+      'follicular': Color(0xFF90C890),
+      'ovulation': Color(0xFFB8A8E8),
+      'luteal': Color(0xFF90B8E0),
+    };
+
+    final phaseDisplayNames = {
+      'menstruation': 'Menstruation',
+      'follicular': 'Follicular phase',
+      'ovulation': 'Ovulation',
+      'luteal': 'Luteal phase',
+    };
+
+    final headerY = 6.0;
+    final headerHeight = 22.0;
+
+    for (final entry in data.phases.entries) {
+      final phaseName = entry.key;
+      final range = entry.value;
+      final color = phaseColors[phaseName]!;
+      final darkColor = phaseDarkColors[phaseName]!;
+
+      final startX = _dayToX(range.startDay.toDouble(), chartWidth);
+      final endX = _dayToX(range.endDay.toDouble() + 1, chartWidth);
+      final width = endX - startX;
+
+      // Draw header background
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(startX, headerY, width, headerHeight),
+          Radius.circular(6),
+        ),
+        Paint()..color = color.withOpacity(0.6),
+      );
+
+      // Draw header border
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          Rect.fromLTWH(startX, headerY, width, headerHeight),
+          Radius.circular(6),
+        ),
+        Paint()
+          ..color = darkColor
+          ..strokeWidth = 1.0
+          ..style = PaintingStyle.stroke,
+      );
+
+      // Draw phase name label
+      final displayName = phaseDisplayNames[phaseName] ?? phaseName;
       final textPainter = TextPainter(
         text: TextSpan(
-          text: phaseDisplayName,
+          text: displayName,
           style: TextStyle(
-            color: phaseDarkColors[phaseName],
-            fontSize: 13,
-            fontWeight: FontWeight.bold,
+            fontSize: 10,
+            fontWeight: FontWeight.w600,
+            color: darkColor,
           ),
         ),
         textDirection: TextDirection.ltr,
       );
       textPainter.layout();
-      textPainter.paint(canvas, Offset(startX + 4, _topPadding + 2));
+
+      // Center text in header
+      final textX = startX + (width - textPainter.width) / 2;
+      final textY = headerY + (headerHeight - textPainter.height) / 2;
+      textPainter.paint(canvas, Offset(textX, textY));
     }
   }
 
-  void _drawGridlines(
+  void _drawVerticalAxisLine(Canvas canvas, Size size, double chartHeight) {
+    // Draw vertical axis line on the left
+    canvas.drawLine(
+      Offset(_leftPadding - 2, _topPadding),
+      Offset(_leftPadding - 2, _topPadding + chartHeight),
+      Paint()
+        ..color = Color(0xFFD0B0E0)
+        ..strokeWidth = 1.0,
+    );
+  }
+
+  void _drawHorizontalGridlines(
     Canvas canvas,
     Size size,
     double chartWidth,
     double chartHeight,
   ) {
     final paint = Paint()
-      ..color = Color(0xFFC8A8D8)
-      ..strokeWidth = 0.8;
+      ..color = Color(0xFFE0C8F0)
+      ..strokeWidth = 0.6;
 
-    for (double ratio in [0.25, 0.5, 0.75]) {
+    // Draw gridlines at H (top), M (middle), L (bottom) positions
+    for (double ratio in [0.0, 0.5, 1.0]) {
       final y = _topPadding + chartHeight * ratio;
       _drawDashedLine(
         canvas,
         Offset(_leftPadding, y),
         Offset(_leftPadding + chartWidth, y),
         paint,
-        4.0,
         3.0,
+        2.5,
       );
     }
   }
@@ -425,19 +503,37 @@ class CycleChartPainter extends CustomPainter {
   }
 
   void _drawAxisLabels(Canvas canvas, Size size, double chartHeight) {
-    final labels = ['H', 'M', 'L'];
+    // Draw H, M, L labels on the left axis
+    final labels = [
+      {'label': 'H', 'ratio': 0.0},
+      {'label': 'M', 'ratio': 0.5},
+      {'label': 'L', 'ratio': 1.0},
+    ];
 
-    for (int i = 0; i < labels.length; i++) {
-      final y = _topPadding + chartHeight * (1 - (i + 1) / 4);
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: labels[i],
-          style: TextStyle(color: Color(0xFFC8A8D8), fontSize: 8),
+    final labelPaint = TextPainter(
+      textDirection: TextDirection.ltr,
+    );
+
+    for (final item in labels) {
+      final label = item['label'] as String;
+      final ratio = item['ratio'] as double;
+      final y = _topPadding + chartHeight * ratio;
+
+      labelPaint.text = TextSpan(
+        text: label,
+        style: TextStyle(
+          color: Color(0xFF9B7BAB),
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
         ),
-        textDirection: TextDirection.ltr,
       );
-      textPainter.layout();
-      textPainter.paint(canvas, Offset(_leftPadding - 20, y - 4));
+      labelPaint.layout();
+
+      // Center the label vertically on the gridline
+      labelPaint.paint(
+        canvas,
+        Offset(_leftPadding - _axisLabelWidth + 5, y - labelPaint.height / 2),
+      );
     }
   }
 
@@ -447,29 +543,32 @@ class CycleChartPainter extends CustomPainter {
     double chartWidth,
     double chartHeight,
   ) {
+    // Draw hormone curves with smooth rendering
     _drawCurveWithFill(
       canvas,
       data.hormonePoints['oestradiol']!,
       Color(0xFFE870C0),
-      3.5,
+      2.5,
       chartWidth,
       chartHeight,
       fill: true,
+      fillOpacity: 0.10,
     );
     _drawCurveWithFill(
       canvas,
       data.hormonePoints['progesterone']!,
       Color(0xFF7058D8),
-      3.5,
+      2.5,
       chartWidth,
       chartHeight,
       fill: true,
+      fillOpacity: 0.10,
     );
     _drawCurveWithFill(
       canvas,
       data.hormonePoints['lh']!,
       Color(0xFF58C870),
-      2.8,
+      2.0,
       chartWidth,
       chartHeight,
     );
@@ -477,7 +576,7 @@ class CycleChartPainter extends CustomPainter {
       canvas,
       data.hormonePoints['fsh']!,
       Color(0xFFF0A050),
-      2.8,
+      2.0,
       chartWidth,
       chartHeight,
     );
@@ -491,6 +590,7 @@ class CycleChartPainter extends CustomPainter {
     double chartWidth,
     double chartHeight, {
     bool fill = false,
+    double fillOpacity = 0.12,
   }) {
     if (points.isEmpty) return;
 
@@ -499,7 +599,8 @@ class CycleChartPainter extends CustomPainter {
       ..strokeWidth = strokeWidth
       ..style = PaintingStyle.stroke
       ..strokeCap = StrokeCap.round
-      ..strokeJoin = StrokeJoin.round;
+      ..strokeJoin = StrokeJoin.round
+      ..isAntiAlias = true;
 
     final path = Path();
     path.moveTo(_dayToX(1, chartWidth), _valueToY(points[0], chartHeight));
@@ -513,6 +614,7 @@ class CycleChartPainter extends CustomPainter {
 
     canvas.drawPath(path, paint);
 
+    // Draw fill under curve if requested
     if (fill) {
       final fillPath = Path()
         ..moveTo(_dayToX(1, chartWidth), _valueToY(points[0], chartHeight));
@@ -532,13 +634,13 @@ class CycleChartPainter extends CustomPainter {
       canvas.drawPath(
         fillPath,
         Paint()
-          ..color = color.withOpacity(0.12)
+          ..color = color.withOpacity(fillOpacity)
           ..style = PaintingStyle.fill,
       );
     }
   }
 
-  void _drawTodayLine(
+  void _drawTodayIndicator(
     Canvas canvas,
     Size size,
     double chartWidth,
@@ -546,46 +648,58 @@ class CycleChartPainter extends CustomPainter {
   ) {
     final x = _dayToX(data.todayDay.toDouble(), chartWidth);
 
-    final paint = Paint()
+    // Draw vertical dashed line for current day
+    final linePaint = Paint()
       ..color = Color(0xFFC87BE8)
-      ..strokeWidth = 1.5;
+      ..strokeWidth = 1.2;
 
     _drawDashedLine(
       canvas,
       Offset(x, _topPadding),
       Offset(x, _topPadding + chartHeight),
-      paint,
-      4.0,
-      3.0,
+      linePaint,
+      3.5,
+      2.5,
     );
 
+    // Draw badge at the top
     final textPainter = TextPainter(
       text: TextSpan(
         text: 'Day ${data.todayDay}',
         style: TextStyle(
           color: Colors.white,
           fontSize: 12,
-          fontWeight: FontWeight.w500,
+          fontWeight: FontWeight.w600,
         ),
       ),
       textDirection: TextDirection.ltr,
     );
     textPainter.layout();
 
-    final pillWidth = textPainter.width + 8;
-    final pillHeight = textPainter.height + 4;
-    final pillX = x - pillWidth / 2;
-    const pillY = 2.0;
+    const badgePadding = 8.0;
+    const badgeVerticalPadding = 5.0;
+    final badgeWidth = textPainter.width + (badgePadding * 2);
+    final badgeHeight = textPainter.height + (badgeVerticalPadding * 2);
+    final badgeX = x - badgeWidth / 2;
+    const badgeY = 3.0;
 
+    // Draw badge background with rounded corners
     canvas.drawRRect(
       RRect.fromRectAndRadius(
-        Rect.fromLTWH(pillX, pillY, pillWidth, pillHeight),
-        Radius.circular(4),
+        Rect.fromLTWH(badgeX, badgeY, badgeWidth, badgeHeight),
+        Radius.circular(6),
       ),
       Paint()..color = Color(0xFFC87BE8),
     );
 
-    textPainter.paint(canvas, Offset(pillX + 4, pillY + 2));
+    // Draw badge text
+    textPainter.paint(
+      canvas,
+      Offset(
+        badgeX + badgePadding,
+        badgeY + badgeVerticalPadding,
+      ),
+    );
   }
 
   void _drawSymptomDots(
@@ -594,78 +708,77 @@ class CycleChartPainter extends CustomPainter {
     double chartWidth,
     double chartHeight,
   ) {
-    const dotRadius = 4.0;
-    final dotsY = _topPadding + chartHeight * 0.85;
+    // Draw symptom dots without text labels for clean appearance
+    const dotRadius = 5.0;
+    final dotsY = _topPadding + chartHeight + 8;
 
     for (final dot in data.symptomDots) {
       final x = _dayToX(dot.cycleDay.toDouble(), chartWidth);
 
+      // Draw dot with subtle shadow effect
       canvas.drawCircle(
         Offset(x, dotsY),
         dotRadius,
-        Paint()..color = dot.color,
+        Paint()
+          ..color = dot.color
+          ..style = PaintingStyle.fill,
       );
 
-      final textPainter = TextPainter(
-        text: TextSpan(
-          text: dot.label,
-          style: TextStyle(color: dot.color, fontSize: 7.5),
-        ),
-        textDirection: TextDirection.ltr,
+      // Draw slight border for definition
+      canvas.drawCircle(
+        Offset(x, dotsY),
+        dotRadius,
+        Paint()
+          ..color = dot.color.withOpacity(0.4)
+          ..strokeWidth = 0.8
+          ..style = PaintingStyle.stroke,
       );
-      textPainter.layout();
-      textPainter.paint(canvas, Offset(x + 6, dotsY - 4));
     }
   }
 
-  void _drawXAxisLabels(
+  void _drawDayMarkers(
     Canvas canvas,
     Size size,
     double chartWidth,
     double chartHeight,
   ) {
-    final days = [1, 5, 7, 14, 21, 28];
-    final displayDays = days.where((d) => d <= data.cycleLength).toList();
+    // Show markers for key days: 1, 7, 14, 21, 28 (only if cycle length allows)
+    final markerDays = [1, 7, 14, 21, 28]
+        .where((d) => d <= data.cycleLength)
+        .toList();
 
-    for (final day in displayDays) {
+    final tickY = _topPadding + chartHeight + 3;
+    final labelY = _topPadding + chartHeight + 16;
+
+    for (final day in markerDays) {
       final x = _dayToX(day.toDouble(), chartWidth);
+
+      // Draw tick mark
+      canvas.drawLine(
+        Offset(x, tickY),
+        Offset(x, tickY + 7),
+        Paint()
+          ..color = Color(0xFFBBA0CF)
+          ..strokeWidth = 1.0,
+      );
+
+      // Draw day label
       final textPainter = TextPainter(
         text: TextSpan(
           text: 'Day $day',
-          style: TextStyle(color: Color(0xFFC0A0D0), fontSize: 8),
+          style: TextStyle(
+            color: Color(0xFF8B6BA3),
+            fontSize: 10,
+            fontWeight: FontWeight.w500,
+          ),
         ),
         textDirection: TextDirection.ltr,
       );
       textPainter.layout();
+
       textPainter.paint(
         canvas,
-        Offset(x - textPainter.width / 2, _topPadding + chartHeight + 8),
-      );
-    }
-  }
-
-  void _drawPhaseDividers(Canvas canvas, Size size, double chartHeight) {
-    final dividerDays = [
-      data.phases['follicular']!.startDay,
-      data.phases['ovulation']!.startDay,
-      data.phases['luteal']!.startDay,
-    ];
-
-    final paint = Paint()
-      ..color = Color.fromARGB(77, 180, 140, 210)
-      ..strokeWidth = 0.8;
-
-    final chartWidth = size.width - _leftPadding - _rightPadding;
-
-    for (final day in dividerDays) {
-      final x = _dayToX(day.toDouble(), chartWidth);
-      _drawDashedLine(
-        canvas,
-        Offset(x, _topPadding),
-        Offset(x, _topPadding + chartHeight),
-        paint,
-        3.0,
-        2.0,
+        Offset(x - textPainter.width / 2, labelY),
       );
     }
   }
@@ -783,37 +896,28 @@ class MenstrualCycleChartCard extends StatelessWidget {
                 ],
               ),
               SizedBox(height: 16),
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                child: Row(
-                  children: [
-                    _LegendItem('Oestradiol', Color(0xFFE870C0)),
-                    SizedBox(width: 8),
-                    _LegendItem('Progesterone', Color(0xFF7058D8)),
-                    SizedBox(width: 8),
-                    _LegendItem('LH', Color(0xFF58C870)),
-                    SizedBox(width: 8),
-                    _LegendItem('FSH', Color(0xFFF0A050)),
-                  ],
-                ),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  _LegendItem('Oestradiol', Color(0xFFE870C0)),
+                  SizedBox(width: 12),
+                  _LegendItem('Progesterone', Color(0xFF7058D8)),
+                  SizedBox(width: 12),
+                  _LegendItem('LH', Color(0xFF58C870)),
+                  SizedBox(width: 12),
+                  _LegendItem('FSH', Color(0xFFF0A050)),
+                ],
               ),
               SizedBox(height: 16),
               ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
-                  color: Colors.white.withOpacity(0.5),
-                  height: 380,
-                  child: InteractiveViewer(
-                    boundaryMargin: EdgeInsets.all(20),
-                    minScale: 0.8,
-                    maxScale: 3.0,
-                    child: SizedBox(
-                      width: 1200,
-                      height: 420,
-                      child: CustomPaint(
-                        painter: CycleChartPainter(data),
-                        size: Size(1200, 420),
-                      ),
+                  color: Colors.white,
+                  child: SizedBox(
+                    height: 220,
+                    child: CustomPaint(
+                      painter: CycleChartPainter(data),
+                      size: Size.infinite,
                     ),
                   ),
                 ),

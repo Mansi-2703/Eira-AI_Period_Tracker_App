@@ -1298,9 +1298,12 @@ class _HomeScreenState extends State<HomeScreen> {
               const SizedBox(height: 16),
             ],
             if (cycles.isNotEmpty) ...[
-              MenstrualCycleChartCard(
-                logs: dailyLogs,
-                overrideTodayDay: _getCycleDayFromPrediction(prediction),
+              ConstrainedBox(
+                constraints: BoxConstraints(maxWidth: 390),
+                child: MenstrualCycleChartCard(
+                  logs: dailyLogs,
+                  overrideTodayDay: _getCycleDayFromPrediction(prediction),
+                ),
               ),
               const SizedBox(height: 16),
               PredictionCharts(cycles: cycles, prediction: prediction),
