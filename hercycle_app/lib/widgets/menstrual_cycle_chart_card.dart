@@ -64,7 +64,7 @@ double _clamp(double value, double min, double max) {
   return value < min ? min : (value > max ? max : value);
 }
 
-CycleChartData computeCycleChart(List<DailyLog> logs) {
+CycleChartData computeCycleChart(List<DailyLog> logs, {int? overrideTodayDay}) {
   if (logs.isEmpty) {
     return _defaultCycleChartData();
   }
@@ -224,7 +224,7 @@ CycleChartData computeCycleChart(List<DailyLog> logs) {
     }
   }
 
-  final todayDayRaw = DateTime.now().difference(currentCycleStart).inDays + 1;
+  final todayDayRaw = overrideTodayDay ?? DateTime.now().difference(currentCycleStart).inDays + 1;
   final todayDay = todayDayRaw.clamp(1, cycleLength);
 
   return CycleChartData(
@@ -678,13 +678,17 @@ class CycleChartPainter extends CustomPainter {
 
 class MenstrualCycleChartCard extends StatelessWidget {
   final List<DailyLog> logs;
+  final int? overrideTodayDay;
 
-  const MenstrualCycleChartCard({Key? key, required this.logs})
-    : super(key: key);
+  const MenstrualCycleChartCard({
+    Key? key,
+    required this.logs,
+    this.overrideTodayDay,
+  }) : super(key: key);
 
   @override
   Widget build(BuildContext context) {
-    final data = computeCycleChart(logs);
+    final data = computeCycleChart(logs, overrideTodayDay: overrideTodayDay);
 
     return Container(
       decoration: BoxDecoration(
