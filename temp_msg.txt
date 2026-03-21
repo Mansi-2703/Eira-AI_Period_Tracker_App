@@ -1,0 +1,13 @@
+Fix menstrual cycle chart to render dynamic hormone curves with logged data
+
+- Updated enums (FlowIntensity, MoodType, EnergyLevel) to match backend API values
+- Removed crampLevel field from DailyLog (not available in backend)
+- Enhanced computeCycleChart to fallback to oldest log date when no flow data exists
+- Replaced flat default hormone curves with proper Gaussian-based curves
+- Integrated daily logs fetching in home_screen with proper data parsing
+- Added loadDailyLogs() method to fetch last 90 days of user logs
+- Chart now dynamically renders hormone curves, phase bands, and symptom dots based on actual user data
+- Reloads daily logs when quiz is completed
+
+Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>
+

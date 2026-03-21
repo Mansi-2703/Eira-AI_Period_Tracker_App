@@ -123,10 +123,10 @@ class PredictionCard extends StatelessWidget {
         height: 36,
         decoration: BoxDecoration(
           shape: BoxShape.circle,
-          color: Colors.white.withOpacity(0.15),
+          color: Colors.white.withValues(alpha: 0.15),
           boxShadow: [
             BoxShadow(
-              color: Colors.white.withOpacity(0.4),
+              color: Colors.white.withValues(alpha: 0.4),
               blurRadius: 12,
               offset: const Offset(0, 4),
             ),
@@ -153,15 +153,15 @@ class PredictionCard extends StatelessWidget {
           height: 46,
           decoration: BoxDecoration(
             shape: BoxShape.circle,
-            color: Colors.white.withOpacity(0.9),
+            color: Colors.white.withValues(alpha: 0.9),
             boxShadow: [
               BoxShadow(
-                color: Colors.white.withOpacity(0.8),
+                color: Colors.white.withValues(alpha: 0.8),
                 blurRadius: 20,
                 spreadRadius: 1,
               ),
               BoxShadow(
-                color: HerCyclePalette.deep.withOpacity(0.15),
+                color: HerCyclePalette.deep.withValues(alpha: 0.15),
                 blurRadius: 12,
                 offset: const Offset(0, 6),
               ),
@@ -171,6 +171,78 @@ class PredictionCard extends StatelessWidget {
         ),
       ),
     );
+  }
+
+  List<Color> _getCardBackgroundGradient(String phase) {
+    final normalized = phase.toLowerCase();
+    if (normalized.contains('menstru')) {
+      return [
+        const Color(0xFFFFDCE9), // Light bright pink
+        const Color(0xFFFFC7E0), // Light magenta
+      ];
+    } else if (normalized.contains('follic')) {
+      return [
+        const Color(0xFFD4F5E3), // Light green
+        const Color(0xFFFFF9C4), // Light yellow
+      ];
+    } else if (normalized.contains('ovulat')) {
+      return [
+        const Color(0xFFFFE0B2), // Light orange
+        const Color(0xFFFFCDD2), // Light red
+      ];
+    } else if (normalized.contains('lute')) {
+      return [
+        const Color(0xFFBBDEFB), // Light blue
+        const Color(0xFFE1BEE7), // Light purple
+      ];
+    }
+    return [
+      const Color(0xFFFFDCE9), // Default light pink
+      const Color(0xFFFFC7E0), // Default light magenta
+    ];
+  }
+
+  List<Color> _getPhaseGradientColors(String phase) {
+    final normalized = phase.toLowerCase();
+    if (normalized.contains('menstru')) {
+      return [
+        const Color(0xFFFF6B9D), // Bright pink
+        const Color(0xFFE84B8A), // Magenta
+      ];
+    } else if (normalized.contains('follic')) {
+      return [
+        const Color(0xFF4ECB71), // Bright green
+        const Color(0xFFFFC107), // Bright yellow
+      ];
+    } else if (normalized.contains('ovulat')) {
+      return [
+        const Color(0xFFFF9800), // Bright orange
+        const Color(0xFFE74C3C), // Bright red
+      ];
+    } else if (normalized.contains('lute')) {
+      return [
+        const Color(0xFF2196F3), // Bright blue
+        const Color(0xFF9C27B0), // Bright purple
+      ];
+    }
+    return [
+      const Color(0xFFFF6B9D), // Default bright pink
+      const Color(0xFFE84B8A), // Default magenta
+    ];
+  }
+
+  Color _getRingColor(String phase) {
+    final normalized = phase.toLowerCase();
+    if (normalized.contains('menstru')) {
+      return const Color(0xFFFF6B9D); // Bright pink
+    } else if (normalized.contains('follic')) {
+      return const Color(0xFFFFC107); // Bright yellow
+    } else if (normalized.contains('ovulat')) {
+      return const Color(0xFFE74C3C); // Bright red
+    } else if (normalized.contains('lute')) {
+      return const Color(0xFF2196F3); // Bright blue
+    }
+    return const Color(0xFFFF6B9D); // Default bright pink
   }
 
   @override
@@ -210,20 +282,20 @@ class PredictionCard extends StatelessWidget {
         child: Container(
           decoration: BoxDecoration(
             borderRadius: BorderRadius.circular(32),
-            gradient: const LinearGradient(
-              colors: [Color(0xFFE9D9F8), Color(0xFFC48BEB)],
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
+            gradient: LinearGradient(
+              colors: _getCardBackgroundGradient(displayPhase),
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
             ),
-            border: Border.all(color: Colors.white.withOpacity(0.3)),
+            border: Border.all(color: Colors.white.withValues(alpha: 0.4)),
             boxShadow: [
               BoxShadow(
-                color: Colors.black.withOpacity(0.15),
+                color: Colors.black.withValues(alpha: 0.15),
                 offset: const Offset(0, 10),
                 blurRadius: 24,
               ),
               BoxShadow(
-                color: Colors.white.withOpacity(0.5),
+                color: Colors.white.withValues(alpha: 0.5),
                 offset: const Offset(0, -2),
                 blurRadius: 12,
               ),
@@ -253,49 +325,11 @@ class PredictionCard extends StatelessWidget {
                           'Cycle Day $cycleDay',
                           style: TextStyle(
                             fontSize: 13,
-                            color: HerCyclePalette.deep.withOpacity(0.7),
+                            color: HerCyclePalette.deep.withValues(alpha: 0.7),
                           ),
                         ),
                       ],
                     ),
-                  ),
-                  TweenAnimationBuilder<double>(
-                    tween: Tween(begin: 0.0, end: moonRotation * 2 * pi),
-                    duration: const Duration(milliseconds: 900),
-                    curve: Curves.easeOutCubic,
-                    builder: (context, angle, child) {
-                      return Transform.rotate(angle: angle, child: child);
-                    },
-                    child: Container(
-                      width: 54,
-                      height: 54,
-                      decoration: BoxDecoration(
-                        shape: BoxShape.circle,
-                        gradient: const RadialGradient(
-                          colors: [Color(0xFFC7A8FF), Color(0xFFAC85FF)],
-                        ),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.white.withOpacity(0.7),
-                            blurRadius: 24,
-                            spreadRadius: 2,
-                          ),
-                        ],
-                      ),
-                      child: const Icon(
-                        Icons.brightness_3,
-                        color: Colors.white,
-                        size: 26,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Row(
-                    children: [
-                      _buildChevronButton(Icons.chevron_left, onSwipePrevious),
-                      const SizedBox(width: 8),
-                      _buildChevronButton(Icons.chevron_right, onSwipeNext),
-                    ],
                   ),
                 ],
               ),
@@ -337,7 +371,12 @@ class PredictionCard extends StatelessWidget {
                                     size: const Size(300, 300),
                                     painter: PhaseCirclePainter(
                                       progress: animatedProgress,
-                                      highlightColor: accent,
+                                      highlightColor: _getRingColor(
+                                        displayPhase,
+                                      ),
+                                      gradientColors: _getPhaseGradientColors(
+                                        displayPhase,
+                                      ),
                                       strokeWidth: 9,
                                       cycleLength: cycleLength,
                                       currentDay: cycleDay,
@@ -349,15 +388,24 @@ class PredictionCard extends StatelessWidget {
                                     height: 200,
                                     decoration: BoxDecoration(
                                       shape: BoxShape.circle,
-                                      color: Colors.white.withOpacity(0.1),
+                                      gradient: RadialGradient(
+                                        colors: _getCardBackgroundGradient(
+                                          displayPhase,
+                                        ),
+                                        stops: const [0.3, 1.0],
+                                      ),
                                       boxShadow: [
                                         BoxShadow(
-                                          color: Colors.black.withOpacity(0.12),
+                                          color: Colors.black.withValues(
+                                            alpha: 0.12,
+                                          ),
                                           blurRadius: 30,
                                           spreadRadius: 2,
                                         ),
                                         BoxShadow(
-                                          color: Colors.white.withOpacity(0.4),
+                                          color: Colors.white.withValues(
+                                            alpha: 0.4,
+                                          ),
                                           blurRadius: 32,
                                           spreadRadius: 4,
                                           offset: const Offset(0, -4),
@@ -387,7 +435,7 @@ class PredictionCard extends StatelessWidget {
                                           style: TextStyle(
                                             fontSize: 14,
                                             color: HerCyclePalette.deep
-                                                .withOpacity(0.85),
+                                                .withValues(alpha: 0.85),
                                             letterSpacing: 1.6,
                                             fontWeight: FontWeight.w600,
                                             fontFamily: 'Inter',
@@ -400,7 +448,7 @@ class PredictionCard extends StatelessWidget {
                                           style: TextStyle(
                                             fontSize: 14,
                                             color: HerCyclePalette.deep
-                                                .withOpacity(0.8),
+                                                .withValues(alpha: 0.8),
                                             fontFamily: 'Inter',
                                           ),
                                         ),
@@ -416,16 +464,6 @@ class PredictionCard extends StatelessWidget {
                                         ),
                                       ],
                                     ),
-                                  ),
-                                  _floatingAction(
-                                    context,
-                                    Icons.sunny,
-                                    'Mood / Energy: Track sleep and gentle movement',
-                                  ),
-                                  _floatingAction(
-                                    context,
-                                    Icons.water_drop,
-                                    'Symptoms: Log any flow, cramps, or alerts',
                                   ),
                                 ],
                               ),
@@ -444,9 +482,11 @@ class PredictionCard extends StatelessWidget {
                   vertical: 12,
                 ),
                 decoration: BoxDecoration(
-                  color: Colors.white.withOpacity(0.12),
+                  color: Colors.white.withValues(alpha: 0.12),
                   borderRadius: BorderRadius.circular(24),
-                  border: Border.all(color: Colors.white.withOpacity(0.45)),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.45),
+                  ),
                 ),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -464,7 +504,7 @@ class PredictionCard extends StatelessWidget {
                         Text(
                           cycleLengthLabel,
                           style: TextStyle(
-                            color: HerCyclePalette.deep.withOpacity(0.6),
+                            color: HerCyclePalette.deep.withValues(alpha: 0.6),
                             fontSize: 12,
                           ),
                         ),
@@ -492,7 +532,7 @@ class PredictionCard extends StatelessWidget {
                                 value: value,
                                 minHeight: 6,
                                 backgroundColor: HerCyclePalette.light
-                                    .withOpacity(0.4),
+                                    .withValues(alpha: 0.4),
                                 valueColor: AlwaysStoppedAnimation<Color>(
                                   HerCyclePalette.magenta,
                                 ),
@@ -516,14 +556,16 @@ class PredictionCard extends StatelessWidget {
                         Icon(
                           Icons.calendar_view_month,
                           size: 16,
-                          color: HerCyclePalette.deep.withOpacity(0.75),
+                          color: HerCyclePalette.deep.withValues(alpha: 0.75),
                         ),
                         const SizedBox(width: 6),
                         Expanded(
                           child: Text(
                             'Fertile window: $fertileText',
                             style: TextStyle(
-                              color: HerCyclePalette.deep.withOpacity(0.7),
+                              color: HerCyclePalette.deep.withValues(
+                                alpha: 0.7,
+                              ),
                               fontSize: 12,
                             ),
                           ),
@@ -536,7 +578,7 @@ class PredictionCard extends StatelessWidget {
                         moodHint,
                         style: TextStyle(
                           fontSize: 12,
-                          color: HerCyclePalette.deep.withOpacity(0.65),
+                          color: HerCyclePalette.deep.withValues(alpha: 0.65),
                         ),
                       ),
                     ],
@@ -554,6 +596,7 @@ class PredictionCard extends StatelessWidget {
 class PhaseCirclePainter extends CustomPainter {
   final double progress;
   final Color highlightColor;
+  final List<Color> gradientColors;
   final double strokeWidth;
   final int cycleLength;
   final int currentDay;
@@ -562,6 +605,7 @@ class PhaseCirclePainter extends CustomPainter {
   PhaseCirclePainter({
     required this.progress,
     required this.highlightColor,
+    required this.gradientColors,
     this.strokeWidth = 10,
     this.cycleLength = 28,
     this.currentDay = 1,
@@ -574,21 +618,30 @@ class PhaseCirclePainter extends CustomPainter {
     final double radius = min(size.width, size.height) / 2 - strokeWidth - 8;
 
     final Paint basePaint = Paint()
-      ..color = Colors.white.withOpacity(0.15)
+      ..color = Colors.white.withValues(alpha: 0.15)
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round
       ..isAntiAlias = true;
 
-    final Paint progressPaint = Paint()
-      ..color = highlightColor
+    // Create gradient shader for progress arc
+    final Rect rect = Rect.fromCircle(center: center, radius: radius);
+    final progressPaint = Paint()
+      ..shader = ui.Gradient.sweep(
+        center,
+        gradientColors,
+        [0.0, 1.0],
+        TileMode.clamp,
+        -pi / 2,
+        -pi / 2 + (2 * pi * 0.3),
+      )
       ..style = PaintingStyle.stroke
       ..strokeWidth = strokeWidth
       ..strokeCap = StrokeCap.round
       ..isAntiAlias = true;
 
     final Paint tickPaint = Paint()
-      ..color = Colors.white.withOpacity(0.35 + (0.3 * tickOpacity))
+      ..color = Colors.white.withValues(alpha: 0.35 + (0.3 * tickOpacity))
       ..strokeWidth = 1.2
       ..strokeCap = StrokeCap.round
       ..isAntiAlias = true;
@@ -618,7 +671,7 @@ class PhaseCirclePainter extends CustomPainter {
     }
 
     final Paint innerShadow = Paint()
-      ..color = Colors.black.withOpacity(0.05)
+      ..color = Colors.black.withValues(alpha: 0.05)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 12;
 
@@ -645,7 +698,9 @@ class PhaseCirclePainter extends CustomPainter {
       final textStyle = TextStyle(
         fontSize: isCurrentDay ? 14 : 10,
         fontWeight: isCurrentDay ? FontWeight.w700 : FontWeight.w500,
-        color: isCurrentDay ? highlightColor : regularColor.withOpacity(0.6),
+        color: isCurrentDay
+            ? highlightColor
+            : regularColor.withValues(alpha: 0.6),
       );
 
       final textPainter = TextPainter(
@@ -663,6 +718,7 @@ class PhaseCirclePainter extends CustomPainter {
   bool shouldRepaint(covariant PhaseCirclePainter oldDelegate) {
     return oldDelegate.progress != progress ||
         oldDelegate.highlightColor != highlightColor ||
+        oldDelegate.gradientColors != gradientColors ||
         oldDelegate.strokeWidth != strokeWidth ||
         oldDelegate.cycleLength != cycleLength ||
         oldDelegate.currentDay != currentDay ||
