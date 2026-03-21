@@ -641,6 +641,7 @@ class _PredictionChartsState extends State<PredictionCharts> {
         // Daily log card
         DailyLogCard(
           date: DateTime.now(),
+          existingLogs: _dailyLogs,
           onLogSaved: (logData) async {
             try {
               final success = await ApiService.saveDailyLog(logData);

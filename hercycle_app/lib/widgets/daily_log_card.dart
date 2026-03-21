@@ -6,8 +6,14 @@ enum LogState { notLogged, partiallyLogged, fullyLogged }
 class DailyLogCard extends StatefulWidget {
   final DateTime date;
   final Function(Map<String, dynamic>)? onLogSaved;
+  final List<dynamic>? existingLogs;
 
-  const DailyLogCard({super.key, required this.date, this.onLogSaved});
+  const DailyLogCard({
+    super.key,
+    required this.date,
+    this.onLogSaved,
+    this.existingLogs,
+  });
 
   @override
   State<DailyLogCard> createState() => _DailyLogCardState();
@@ -38,6 +44,59 @@ class _DailyLogCardState extends State<DailyLogCard>
     _heightAnimation = Tween<double>(begin: 0.0, end: 1.0).animate(
       CurvedAnimation(parent: _animationController, curve: Curves.easeInOut),
     );
+    _checkExistingLog();
+  }
+
+  @override
+  void didUpdateWidget(DailyLogCard oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // Check if logs were updated from parent
+    if (oldWidget.existingLogs != widget.existingLogs) {
+      _checkExistingLog();
+    }
+  }
+
+  void _checkExistingLog() {
+    if (widget.existingLogs == null || widget.existingLogs!.isEmpty) {
+      debugPrint('[DailyLogCard] No logs available');
+      return;
+    }
+
+    final todayString = widget.date.toIso8601String().split('T')[0];
+    debugPrint('[DailyLogCard] Looking for logs on date: $todayString');
+    debugPrint(
+      '[DailyLogCard] Total logs available: ${widget.existingLogs!.length}',
+    );
+
+    for (final log in widget.existingLogs!) {
+      if (log is Map<String, dynamic>) {
+        final logDateString = log['date']?.toString().split('T')[0];
+        debugPrint('[DailyLogCard] Checking log date: $logDateString');
+        if (logDateString == todayString) {
+          // Found a log for today - populate the fields
+          debugPrint('[DailyLogCard] FOUND matching log for today!');
+          setState(() {
+            _selectedMood = log['mood']?.toString().toLowerCase();
+            _selectedFlow = log['flow']?.toString().toLowerCase();
+            _selectedEnergy = log['energy']?.toString().toLowerCase();
+
+            debugPrint(
+              '[DailyLogCard] Loaded mood: $_selectedMood, flow: $_selectedFlow, energy: $_selectedEnergy',
+            );
+
+            if (log['symptoms'] is List) {
+              for (final symptom in log['symptoms']) {
+                _selectedSymptoms.add(symptom.toString());
+              }
+            }
+
+            _logState = LogState.fullyLogged;
+          });
+          return;
+        }
+      }
+    }
+    debugPrint('[DailyLogCard] No matching log found for today');
   }
 
   @override
@@ -154,9 +213,19 @@ class _DailyLogCardState extends State<DailyLogCard>
         borderRadius: BorderRadius.circular(16),
         boxShadow: [
           BoxShadow(
-            color: Colors.black.withOpacity(0.05),
-            blurRadius: 10,
-            offset: const Offset(0, 4),
+            color: Color(0xFFC87BE8).withOpacity(0.15),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+          BoxShadow(
+            color: Color(0xFFC87BE8).withOpacity(0.2),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: Color(0xFFC87BE8).withOpacity(0.25),
+            blurRadius: 24,
+            offset: const Offset(0, 16),
           ),
         ],
       ),
@@ -182,7 +251,7 @@ class _DailyLogCardState extends State<DailyLogCard>
 
   Widget _buildHeader(String formattedDate) {
     return InkWell(
-      onTap: _logState == LogState.fullyLogged ? null : _toggleExpanded,
+      onTap: _toggleExpanded,
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -191,24 +260,20 @@ class _DailyLogCardState extends State<DailyLogCard>
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Row(
-                    children: [
-                      Text(
-                        "Today's log",
-                        style: TextStyle(
-                          fontSize: 18,
-                          fontWeight: FontWeight.w600,
-                          color: _logState == LogState.fullyLogged
-                              ? const Color(0xFF8E24AA)
-                              : const Color(0xFFD81B60),
-                        ),
-                      ),
-                      const SizedBox(width: 8),
-                      Text(
-                        formattedDate,
-                        style: TextStyle(fontSize: 14, color: Colors.grey[600]),
-                      ),
-                    ],
+                  Text(
+                    "Today's log",
+                    style: TextStyle(
+                      fontSize: 18,
+                      fontWeight: FontWeight.w600,
+                      color: _logState == LogState.fullyLogged
+                          ? const Color(0xFF8E24AA)
+                          : const Color(0xFFD81B60),
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    formattedDate,
+                    style: TextStyle(fontSize: 13, color: Colors.grey[600]),
                   ),
                   const SizedBox(height: 8),
                   if (!_isExpanded && _logState != LogState.fullyLogged)
@@ -253,13 +318,16 @@ class _DailyLogCardState extends State<DailyLogCard>
                           : const Color(0xFFD81B60),
                     ),
                   ),
-                  if (!_isExpanded && _logState != LogState.fullyLogged)
-                    const SizedBox(width: 4),
-                  if (!_isExpanded && _logState != LogState.fullyLogged)
+                  if (!_isExpanded) const SizedBox(width: 4),
+                  if (!_isExpanded)
                     Icon(
-                      Icons.keyboard_arrow_down,
+                      _isExpanded
+                          ? Icons.keyboard_arrow_up
+                          : Icons.keyboard_arrow_down,
                       size: 16,
-                      color: const Color(0xFFD81B60),
+                      color: _logState == LogState.fullyLogged
+                          ? Colors.white
+                          : const Color(0xFFD81B60),
                     ),
                 ],
               ),
@@ -381,12 +449,12 @@ class _DailyLogCardState extends State<DailyLogCard>
 
   Widget _buildMoodStep() {
     final moods = [
-      {'emoji': '😊', 'label': 'Happy'},
-      {'emoji': '😌', 'label': 'Calm'},
-      {'emoji': '😔', 'label': 'Sad'},
-      {'emoji': '😰', 'label': 'Anxious'},
-      {'emoji': '😤', 'label': 'Irritable'},
-      {'emoji': '😫', 'label': 'Tired'},
+      {'emoji': '😊', 'label': 'Happy', 'value': 'happy'},
+      {'emoji': '😌', 'label': 'Calm', 'value': 'calm'},
+      {'emoji': '😔', 'label': 'Sad', 'value': 'sad'},
+      {'emoji': '😰', 'label': 'Anxious', 'value': 'anxious'},
+      {'emoji': '😤', 'label': 'Irritable', 'value': 'irritable'},
+      {'emoji': '😫', 'label': 'Tired', 'value': 'tired'},
     ];
 
     return Column(
@@ -413,11 +481,11 @@ class _DailyLogCardState extends State<DailyLogCard>
           itemCount: moods.length,
           itemBuilder: (context, index) {
             final mood = moods[index];
-            final isSelected = _selectedMood == mood['label'];
+            final isSelected = _selectedMood == mood['value'];
             return InkWell(
               onTap: () {
                 setState(() {
-                  _selectedMood = mood['label'] as String;
+                  _selectedMood = mood['value'] as String;
                 });
               },
               child: Container(
@@ -465,16 +533,16 @@ class _DailyLogCardState extends State<DailyLogCard>
 
   Widget _buildFlowEnergyStep() {
     final flowOptions = [
-      {'icon': Icons.opacity, 'label': 'Light'},
-      {'icon': Icons.water_drop, 'label': 'Medium'},
-      {'icon': Icons.water, 'label': 'Heavy'},
-      {'icon': Icons.block, 'label': 'None'},
+      {'icon': Icons.opacity, 'label': 'Light', 'value': 'light'},
+      {'icon': Icons.water_drop, 'label': 'Medium', 'value': 'medium'},
+      {'icon': Icons.water, 'label': 'Heavy', 'value': 'heavy'},
+      {'icon': Icons.block, 'label': 'None', 'value': 'none'},
     ];
 
     final energyOptions = [
-      {'icon': Icons.battery_full, 'label': 'High'},
-      {'icon': Icons.battery_3_bar, 'label': 'Medium'},
-      {'icon': Icons.battery_1_bar, 'label': 'Low'},
+      {'icon': Icons.battery_full, 'label': 'High', 'value': 'high'},
+      {'icon': Icons.battery_3_bar, 'label': 'Medium', 'value': 'medium'},
+      {'icon': Icons.battery_1_bar, 'label': 'Low', 'value': 'low'},
     ];
 
     return Column(
@@ -493,11 +561,11 @@ class _DailyLogCardState extends State<DailyLogCard>
           spacing: 8,
           runSpacing: 8,
           children: flowOptions.map((option) {
-            final isSelected = _selectedFlow == option['label'];
+            final isSelected = _selectedFlow == option['value'];
             return InkWell(
               onTap: () {
                 setState(() {
-                  _selectedFlow = option['label'] as String;
+                  _selectedFlow = option['value'] as String;
                 });
               },
               child: Container(
@@ -560,11 +628,11 @@ class _DailyLogCardState extends State<DailyLogCard>
           spacing: 8,
           runSpacing: 8,
           children: energyOptions.map((option) {
-            final isSelected = _selectedEnergy == option['label'];
+            final isSelected = _selectedEnergy == option['value'];
             return InkWell(
               onTap: () {
                 setState(() {
-                  _selectedEnergy = option['label'] as String;
+                  _selectedEnergy = option['value'] as String;
                 });
               },
               child: Container(

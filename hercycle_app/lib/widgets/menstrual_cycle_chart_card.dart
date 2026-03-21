@@ -84,7 +84,9 @@ CycleChartData computeCycleChart(List<DailyLog> logs, {int? overrideTodayDay}) {
 
   // If no flow data found, use the oldest log date as cycle start
   if (cycleStartDate == null) {
-    cycleStartDate = sortedLogs.isNotEmpty ? sortedLogs.first.date : DateTime.now();
+    cycleStartDate = sortedLogs.isNotEmpty
+        ? sortedLogs.first.date
+        : DateTime.now();
   }
 
   final List<int> cycleLengths = [];
@@ -187,44 +189,9 @@ CycleChartData computeCycleChart(List<DailyLog> logs, {int? overrideTodayDay}) {
     fsh.add(_clamp(fshValue, 0, 1));
   }
 
-  final symptomDots = <SymptomDot>[];
-
-  final moodColors = {
-    MoodType.happy: Color(0xFF58C878),
-    MoodType.calm: Color(0xFF7098E8),
-    MoodType.anxious: Color(0xFFE8A840),
-    MoodType.irritable: Color(0xFFE87070),
-    MoodType.sad: Color(0xFFA878E8),
-    MoodType.tired: Color(0xFFE870B8),
-  };
-
-  for (final log in currentCycleLogs) {
-    final cycleDay = log.date.difference(currentCycleStart).inDays + 1;
-
-    if (log.mood != null) {
-      symptomDots.add(
-        SymptomDot(
-          cycleDay: cycleDay,
-          type: 'mood',
-          label: log.mood!.name,
-          color: moodColors[log.mood]!,
-        ),
-      );
-    }
-
-    for (final symptom in log.symptoms) {
-      symptomDots.add(
-        SymptomDot(
-          cycleDay: cycleDay,
-          type: 'symptom',
-          label: symptom,
-          color: Color(0xFFE870B8),
-        ),
-      );
-    }
-  }
-
-  final todayDayRaw = overrideTodayDay ?? DateTime.now().difference(currentCycleStart).inDays + 1;
+  final todayDayRaw =
+      overrideTodayDay ??
+      DateTime.now().difference(currentCycleStart).inDays + 1;
   final todayDay = todayDayRaw.clamp(1, cycleLength);
 
   return CycleChartData(
@@ -237,7 +204,7 @@ CycleChartData computeCycleChart(List<DailyLog> logs, {int? overrideTodayDay}) {
       'lh': lh,
       'fsh': fsh,
     },
-    symptomDots: symptomDots,
+    symptomDots: [],
   );
 }
 
@@ -272,7 +239,8 @@ CycleChartData _defaultCycleChartData() {
     lh.add(_clamp(lhValue, 0, 1));
 
     final fshValue =
-        g(dDouble, 9.0, 3.5) * 0.75 + g(dDouble, ovulationDay.toDouble(), 1.5) * 0.5;
+        g(dDouble, 9.0, 3.5) * 0.75 +
+        g(dDouble, ovulationDay.toDouble(), 1.5) * 0.5;
     fsh.add(_clamp(fshValue, 0, 1));
   }
 
@@ -284,7 +252,10 @@ CycleChartData _defaultCycleChartData() {
     todayDay: dayInCycle,
     phases: {
       'menstruation': DateRange(startDay: 1, endDay: menstruationEnd),
-      'follicular': DateRange(startDay: menstruationEnd + 1, endDay: ovulationDay - 1),
+      'follicular': DateRange(
+        startDay: menstruationEnd + 1,
+        endDay: ovulationDay - 1,
+      ),
       'ovulation': DateRange(startDay: ovulationDay, endDay: ovulationDay),
       'luteal': DateRange(startDay: lutealStart, endDay: cycleLength),
     },
@@ -320,11 +291,9 @@ class CycleChartPainter extends CustomPainter {
       Paint()..color = Colors.white,
     );
 
-    // Draw phase section headers at top
-    _drawPhaseHeaders(canvas, size, chartWidth);
-
     // Draw in order: backgrounds, then axes, then curves, then indicators
     _drawPhaseBands(canvas, size, chartWidth, chartHeight);
+    _drawPhaseHeaders(canvas, size, chartWidth, chartHeight);
     _drawAxisLabels(canvas, size, chartHeight);
     _drawHorizontalGridlines(canvas, size, chartWidth, chartHeight);
     _drawVerticalAxisLine(canvas, size, chartHeight);
@@ -370,7 +339,12 @@ class CycleChartPainter extends CustomPainter {
     }
   }
 
-  void _drawPhaseHeaders(Canvas canvas, Size size, double chartWidth) {
+  void _drawPhaseHeaders(
+    Canvas canvas,
+    Size size,
+    double chartWidth,
+    double chartHeight,
+  ) {
     final phaseColors = {
       'menstruation': Color(0xFFFFCCE0),
       'follicular': Color(0xFFC8F0C8),
@@ -387,13 +361,12 @@ class CycleChartPainter extends CustomPainter {
 
     final phaseDisplayNames = {
       'menstruation': 'Menstruation',
-      'follicular': 'Follicular phase',
+      'follicular': 'Follicular',
       'ovulation': 'Ovulation',
-      'luteal': 'Luteal phase',
+      'luteal': 'Luteal',
     };
 
-    final headerY = 6.0;
-    final headerHeight = 22.0;
+    final labelCenterY = _topPadding + 12;
 
     for (final entry in data.phases.entries) {
       final phaseName = entry.key;
@@ -403,47 +376,31 @@ class CycleChartPainter extends CustomPainter {
 
       final startX = _dayToX(range.startDay.toDouble(), chartWidth);
       final endX = _dayToX(range.endDay.toDouble() + 1, chartWidth);
-      final width = endX - startX;
+      final width = max(1.0, endX - startX);
 
-      // Draw header background
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(startX, headerY, width, headerHeight),
-          Radius.circular(6),
-        ),
-        Paint()..color = color.withOpacity(0.6),
-      );
-
-      // Draw header border
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          Rect.fromLTWH(startX, headerY, width, headerHeight),
-          Radius.circular(6),
-        ),
-        Paint()
-          ..color = darkColor
-          ..strokeWidth = 1.0
-          ..style = PaintingStyle.stroke,
-      );
-
-      // Draw phase name label
+      // Always show full phase name
       final displayName = phaseDisplayNames[phaseName] ?? phaseName;
+
       final textPainter = TextPainter(
         text: TextSpan(
           text: displayName,
           style: TextStyle(
-            fontSize: 10,
+            fontSize: 8,
             fontWeight: FontWeight.w600,
             color: darkColor,
           ),
         ),
         textDirection: TextDirection.ltr,
+        maxLines: 1,
       );
       textPainter.layout();
 
-      // Center text in header
-      final textX = startX + (width - textPainter.width) / 2;
-      final textY = headerY + (headerHeight - textPainter.height) / 2;
+      // Center text in the band horizontally
+      final bandCenterX = startX + width / 2;
+      final textX = bandCenterX - (textPainter.width / 2);
+      final textY = labelCenterY - (textPainter.height / 2);
+
+      // Draw label text without clipping - allow full visibility
       textPainter.paint(canvas, Offset(textX, textY));
     }
   }
@@ -510,9 +467,7 @@ class CycleChartPainter extends CustomPainter {
       {'label': 'L', 'ratio': 1.0},
     ];
 
-    final labelPaint = TextPainter(
-      textDirection: TextDirection.ltr,
-    );
+    final labelPaint = TextPainter(textDirection: TextDirection.ltr);
 
     for (final item in labels) {
       final label = item['label'] as String;
@@ -602,28 +557,39 @@ class CycleChartPainter extends CustomPainter {
       ..strokeJoin = StrokeJoin.round
       ..isAntiAlias = true;
 
+    // Use quadratic bezier curves for smooth paths
     final path = Path();
     path.moveTo(_dayToX(1, chartWidth), _valueToY(points[0], chartHeight));
 
     for (int i = 1; i < points.length; i++) {
-      path.lineTo(
-        _dayToX(i + 1.0, chartWidth),
-        _valueToY(points[i], chartHeight),
-      );
+      final x1 = _dayToX(i.toDouble(), chartWidth);
+      final y1 = _valueToY(points[i - 1], chartHeight);
+      final x2 = _dayToX(i + 1.0, chartWidth);
+      final y2 = _valueToY(points[i], chartHeight);
+
+      // Use quadratic bezier for smooth curves
+      path.quadraticBezierTo(x1, y1, (x1 + x2) / 2, (y1 + y2) / 2);
     }
 
     canvas.drawPath(path, paint);
 
     // Draw fill under curve if requested
     if (fill) {
-      final fillPath = Path()
-        ..moveTo(_dayToX(1, chartWidth), _valueToY(points[0], chartHeight));
+      final fillPath = Path();
+      fillPath.moveTo(
+        _dayToX(1, chartWidth),
+        _valueToY(points[0], chartHeight),
+      );
+
       for (int i = 1; i < points.length; i++) {
-        fillPath.lineTo(
-          _dayToX(i + 1.0, chartWidth),
-          _valueToY(points[i], chartHeight),
-        );
+        final x1 = _dayToX(i.toDouble(), chartWidth);
+        final y1 = _valueToY(points[i - 1], chartHeight);
+        final x2 = _dayToX(i + 1.0, chartWidth);
+        final y2 = _valueToY(points[i], chartHeight);
+
+        fillPath.quadraticBezierTo(x1, y1, (x1 + x2) / 2, (y1 + y2) / 2);
       }
+
       fillPath.lineTo(
         _dayToX(points.length.toDouble(), chartWidth),
         _valueToY(0, chartHeight),
@@ -648,7 +614,7 @@ class CycleChartPainter extends CustomPainter {
   ) {
     final x = _dayToX(data.todayDay.toDouble(), chartWidth);
 
-    // Draw vertical dashed line for current day
+    // Draw vertical dashed line from chartTop to chartBottom first
     final linePaint = Paint()
       ..color = Color(0xFFC87BE8)
       ..strokeWidth = 1.2;
@@ -662,13 +628,13 @@ class CycleChartPainter extends CustomPainter {
       2.5,
     );
 
-    // Draw badge at the top
+    // Draw pill badge above chart
     final textPainter = TextPainter(
       text: TextSpan(
         text: 'Day ${data.todayDay}',
         style: TextStyle(
           color: Colors.white,
-          fontSize: 12,
+          fontSize: 8,
           fontWeight: FontWeight.w600,
         ),
       ),
@@ -676,28 +642,29 @@ class CycleChartPainter extends CustomPainter {
     );
     textPainter.layout();
 
-    const badgePadding = 8.0;
-    const badgeVerticalPadding = 5.0;
-    final badgeWidth = textPainter.width + (badgePadding * 2);
-    final badgeHeight = textPainter.height + (badgeVerticalPadding * 2);
+    const badgeHorizontalPadding = 8.0;
+    const badgeHeight = 18.0;
+    const badgeBorderRadius = 9.0;
+    final badgeWidth = textPainter.width + (badgeHorizontalPadding * 2);
     final badgeX = x - badgeWidth / 2;
-    const badgeY = 3.0;
+    final badgeY =
+        _topPadding - 16.0; // Pill sits flush above chart panel top edge
 
-    // Draw badge background with rounded corners
+    // Draw pill: RRect with #C87BE8 fill, height 18px, borderRadius 9
     canvas.drawRRect(
       RRect.fromRectAndRadius(
         Rect.fromLTWH(badgeX, badgeY, badgeWidth, badgeHeight),
-        Radius.circular(6),
+        const Radius.circular(badgeBorderRadius),
       ),
       Paint()..color = Color(0xFFC87BE8),
     );
 
-    // Draw badge text
+    // Draw white text "Day X" centered inside pill
     textPainter.paint(
       canvas,
       Offset(
-        badgeX + badgePadding,
-        badgeY + badgeVerticalPadding,
+        x - textPainter.width / 2,
+        badgeY + (badgeHeight - textPainter.height) / 2,
       ),
     );
   }
@@ -708,9 +675,10 @@ class CycleChartPainter extends CustomPainter {
     double chartWidth,
     double chartHeight,
   ) {
-    // Draw symptom dots without text labels for clean appearance
-    const dotRadius = 5.0;
-    final dotsY = _topPadding + chartHeight + 8;
+    // Draw symptom dots on the chart at the day they were logged
+    const dotRadius = 4.0;
+    final dotsY =
+        _topPadding + chartHeight * 0.75; // Position at 75% height of chart
 
     for (final dot in data.symptomDots) {
       final x = _dayToX(dot.cycleDay.toDouble(), chartWidth);
@@ -729,8 +697,8 @@ class CycleChartPainter extends CustomPainter {
         Offset(x, dotsY),
         dotRadius,
         Paint()
-          ..color = dot.color.withOpacity(0.4)
-          ..strokeWidth = 0.8
+          ..color = dot.color.withOpacity(0.5)
+          ..strokeWidth = 1.0
           ..style = PaintingStyle.stroke,
       );
     }
@@ -743,9 +711,13 @@ class CycleChartPainter extends CustomPainter {
     double chartHeight,
   ) {
     // Show markers for key days: 1, 7, 14, 21, 28 (only if cycle length allows)
-    final markerDays = [1, 7, 14, 21, 28]
-        .where((d) => d <= data.cycleLength)
-        .toList();
+    final markerDays = [
+      1,
+      7,
+      14,
+      21,
+      28,
+    ].where((d) => d <= data.cycleLength).toList();
 
     final tickY = _topPadding + chartHeight + 3;
     final labelY = _topPadding + chartHeight + 16;
@@ -776,10 +748,7 @@ class CycleChartPainter extends CustomPainter {
       );
       textPainter.layout();
 
-      textPainter.paint(
-        canvas,
-        Offset(x - textPainter.width / 2, labelY),
-      );
+      textPainter.paint(canvas, Offset(x - textPainter.width / 2, labelY));
     }
   }
 
@@ -804,6 +773,7 @@ class MenstrualCycleChartCard extends StatelessWidget {
     final data = computeCycleChart(logs, overrideTodayDay: overrideTodayDay);
 
     return Container(
+      clipBehavior: Clip.hardEdge,
       decoration: BoxDecoration(
         gradient: LinearGradient(
           colors: [Color(0xFFFFE8F5), Color(0xFFF0E8FF), Color(0xFFE8F0FF)],
@@ -811,6 +781,23 @@ class MenstrualCycleChartCard extends StatelessWidget {
           end: Alignment.bottomRight,
         ),
         borderRadius: BorderRadius.circular(24),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0xFFC87BE8).withOpacity(0.15),
+            blurRadius: 8,
+            offset: const Offset(0, 2),
+          ),
+          BoxShadow(
+            color: Color(0xFFC87BE8).withOpacity(0.2),
+            blurRadius: 16,
+            offset: const Offset(0, 8),
+          ),
+          BoxShadow(
+            color: Color(0xFFC87BE8).withOpacity(0.25),
+            blurRadius: 24,
+            offset: const Offset(0, 16),
+          ),
+        ],
       ),
       padding: EdgeInsets.all(20),
       child: Stack(
@@ -842,69 +829,74 @@ class MenstrualCycleChartCard extends StatelessWidget {
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                children: [
-                  Row(
-                    children: [
-                      Container(
-                        width: 4,
-                        height: 28,
-                        decoration: BoxDecoration(
-                          color: Color(0xFFC87BE8),
-                          borderRadius: BorderRadius.circular(2),
+              Padding(
+                padding: EdgeInsets.only(right: 16),
+                child: Row(
+                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                  children: [
+                    Row(
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 28,
+                          decoration: BoxDecoration(
+                            color: Color(0xFFC87BE8),
+                            borderRadius: BorderRadius.circular(2),
+                          ),
+                        ),
+                        SizedBox(width: 8),
+                        Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              'The menstrual cycle',
+                              style: TextStyle(
+                                fontSize: 15,
+                                fontWeight: FontWeight.w500,
+                                color: Color(0xFF7B3FA0),
+                              ),
+                            ),
+                            Text(
+                              'Track your cycle phases and hormones',
+                              style: TextStyle(
+                                fontSize: 11,
+                                color: Color(0xFF9050A0),
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                    Container(
+                      padding: EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 6,
+                      ),
+                      decoration: BoxDecoration(
+                        color: Colors.white.withOpacity(0.6),
+                        borderRadius: BorderRadius.circular(12),
+                      ),
+                      child: Text(
+                        'Day 1–${data.cycleLength}',
+                        style: TextStyle(
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                          color: Color(0xFF7B3FA0),
                         ),
                       ),
-                      SizedBox(width: 8),
-                      Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            'The menstrual cycle',
-                            style: TextStyle(
-                              fontSize: 15,
-                              fontWeight: FontWeight.w500,
-                              color: Color(0xFF7B3FA0),
-                            ),
-                          ),
-                          Text(
-                            'Track your cycle phases and hormones',
-                            style: TextStyle(
-                              fontSize: 11,
-                              color: Color(0xFF9050A0),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ],
-                  ),
-                  Container(
-                    padding: EdgeInsets.symmetric(horizontal: 12, vertical: 6),
-                    decoration: BoxDecoration(
-                      color: Colors.white.withOpacity(0.6),
-                      borderRadius: BorderRadius.circular(12),
                     ),
-                    child: Text(
-                      'Day 1–${data.cycleLength}',
-                      style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: FontWeight.w600,
-                        color: Color(0xFF7B3FA0),
-                      ),
-                    ),
-                  ),
-                ],
+                  ],
+                ),
               ),
               SizedBox(height: 16),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.center,
+              Wrap(
+                spacing: 5,
+                runSpacing: 5,
+                alignment: WrapAlignment.center,
                 children: [
                   _LegendItem('Oestradiol', Color(0xFFE870C0)),
-                  SizedBox(width: 12),
                   _LegendItem('Progesterone', Color(0xFF7058D8)),
-                  SizedBox(width: 12),
                   _LegendItem('LH', Color(0xFF58C870)),
-                  SizedBox(width: 12),
                   _LegendItem('FSH', Color(0xFFF0A050)),
                 ],
               ),
@@ -912,47 +904,134 @@ class MenstrualCycleChartCard extends StatelessWidget {
               ClipRRect(
                 borderRadius: BorderRadius.circular(16),
                 child: Container(
-                  color: Colors.white,
-                  child: SizedBox(
-                    height: 220,
-                    child: CustomPaint(
-                      painter: CycleChartPainter(data),
-                      size: Size.infinite,
+                  decoration: BoxDecoration(
+                    color: Colors.white.withOpacity(0.42),
+                    borderRadius: BorderRadius.circular(16),
+                  ),
+                  padding: EdgeInsets.fromLTRB(0, 10, 0, 6),
+                  child: SingleChildScrollView(
+                    scrollDirection: Axis.horizontal,
+                    child: SizedBox(
+                      width: 800,
+                      height: 220,
+                      child: CustomPaint(
+                        painter: CycleChartPainter(data),
+                        size: Size.infinite,
+                      ),
                     ),
                   ),
                 ),
               ),
               SizedBox(height: 16),
-              GridView.count(
-                crossAxisCount: 2,
-                mainAxisSpacing: 12,
-                crossAxisSpacing: 12,
-                shrinkWrap: true,
-                physics: NeverScrollableScrollPhysics(),
+              Column(
                 children: [
-                  _PhaseInsightCard(
-                    title: 'Menstruation',
-                    insight: '↓ Work capacity · ↑ Pain',
-                    backgroundColor: Color(0xFFFFCCE0),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _phaseCard(
+                          'Menstruation',
+                          '↓ Work capacity · ↑ Pain',
+                          Color(0xFFFFCCE0),
+                          Color(0xFFB04070),
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: _phaseCard(
+                          'Follicular',
+                          '↑ Work capacity · ↑ Strength',
+                          Color(0xFFC8F0C8),
+                          Color(0xFF2A7040),
+                        ),
+                      ),
+                    ],
                   ),
-                  _PhaseInsightCard(
-                    title: 'Follicular',
-                    insight: '↑ Work capacity · ↑ Strength',
-                    backgroundColor: Color(0xFFC8F0C8),
-                  ),
-                  _PhaseInsightCard(
-                    title: 'Ovulation',
-                    insight: '↑ ACL risk · Peak energy',
-                    backgroundColor: Color(0xFFDDD0FF),
-                  ),
-                  _PhaseInsightCard(
-                    title: 'Luteal',
-                    insight: '↑ Fatigue · ↓ Mood',
-                    backgroundColor: Color(0xFFC8DCF8),
+                  SizedBox(height: 8),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _phaseCard(
+                          'Ovulation',
+                          '↑ ACL risk · Peak energy',
+                          Color(0xFFE0D0FF),
+                          Color(0xFF6030A0),
+                        ),
+                      ),
+                      SizedBox(width: 8),
+                      Expanded(
+                        child: _phaseCard(
+                          'Luteal',
+                          '↑ Fatigue · ↓ Mood',
+                          Color(0xFFC8DCFF),
+                          Color(0xFF204080),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _phaseCard(
+    String title,
+    String insight,
+    Color bgColor,
+    Color textColor,
+  ) {
+    // Use stronger background colors with appropriate opacity
+    Color strongerBgColor;
+    switch (title) {
+      case 'Menstruation':
+        strongerBgColor = Color(0xFFFFCCE0);
+        break;
+      case 'Follicular':
+        strongerBgColor = Color(0xFFC8F0C8);
+        break;
+      case 'Ovulation':
+        strongerBgColor = Color(0xFFE0D0FF);
+        break;
+      case 'Luteal':
+        strongerBgColor = Color(0xFFC8DCFF);
+        break;
+      default:
+        strongerBgColor = bgColor;
+    }
+
+    return Container(
+      constraints: const BoxConstraints(minHeight: 80),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: strongerBgColor.withOpacity(0.6),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: strongerBgColor.withOpacity(0.8), width: 1),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0xFFC87BE8).withOpacity(0.25),
+            blurRadius: 18,
+            offset: const Offset(0, 10),
+          ),
+        ],
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            title,
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w600,
+              color: textColor,
+            ),
+          ),
+          SizedBox(height: 4),
+          Text(
+            insight,
+            style: TextStyle(fontSize: 10, color: textColor.withOpacity(0.8)),
           ),
         ],
       ),
@@ -969,71 +1048,30 @@ class _LegendItem extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
-        color: Colors.white.withOpacity(0.7),
-        borderRadius: BorderRadius.circular(12),
+        color: Colors.white.withOpacity(0.55),
+        borderRadius: BorderRadius.circular(20),
       ),
       child: Row(
+        mainAxisSize: MainAxisSize.min,
         children: [
           Container(
-            width: 18,
-            height: 3,
+            width: 14,
+            height: 2.5,
             decoration: BoxDecoration(
               color: color,
-              borderRadius: BorderRadius.circular(1.5),
+              borderRadius: BorderRadius.circular(1.2),
             ),
           ),
-          SizedBox(width: 6),
+          SizedBox(width: 4),
           Text(
             label,
             style: TextStyle(
-              fontSize: 11,
+              fontSize: 10,
               color: Color(0xFF9050A0),
               fontWeight: FontWeight.w500,
             ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _PhaseInsightCard extends StatelessWidget {
-  final String title;
-  final String insight;
-  final Color backgroundColor;
-
-  const _PhaseInsightCard({
-    required this.title,
-    required this.insight,
-    required this.backgroundColor,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: backgroundColor.withOpacity(0.25),
-        borderRadius: BorderRadius.circular(12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Text(
-            title,
-            style: TextStyle(
-              fontSize: 11,
-              fontWeight: FontWeight.w600,
-              color: Color(0xFF7B3FA0),
-            ),
-          ),
-          SizedBox(height: 4),
-          Text(
-            insight,
-            style: TextStyle(fontSize: 10, color: Color(0xFF9050A0)),
           ),
         ],
       ),

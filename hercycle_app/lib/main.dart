@@ -2,7 +2,7 @@ import 'package:flutter/material.dart';
 import 'screens/splash_screen.dart';
 import 'screens/login_screen.dart';
 import 'screens/register_screen.dart';
-import 'screens/home_screen.dart';
+import 'screens/main_navigation_shell.dart';
 import 'screens/add_cycle_screen.dart';
 import 'screens/quiz_screen.dart';
 import 'theme/hercycle_palette.dart';
@@ -66,7 +66,7 @@ class MyApp extends StatelessWidget {
         '/': (context) => const SplashScreen(),
         '/login': (context) => const LoginScreen(),
         '/register': (context) => const RegisterScreen(),
-        '/home': (context) => const HomeScreen(),
+        '/home': (context) => const MainNavigationShell(),
         '/add-cycle': (context) => const AddCycleScreen(),
         '/quiz': (context) => const QuizScreen(),
       },
